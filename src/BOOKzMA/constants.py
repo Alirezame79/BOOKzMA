@@ -1,4 +1,11 @@
-REQUIRED_CHANNELS = ("@BOOKzMA", "@ReferenceLibrary", "ghorbani_pdf")
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+REQUIRED_CHANNELS = tuple(
+    ch.strip() for ch in os.getenv("REQUIRED_CHANNELS", "").split(",") if ch.strip()
+)
+
 DEFAULT_TIMEZONE = "Asia/Tehran"
 
 MAX_REMINDERS = 5
