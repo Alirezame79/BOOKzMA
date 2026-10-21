@@ -1,4 +1,4 @@
-REQUIRED_CHANNELS = ("@BOOKzMA", "@ReferenceLibrary")
+REQUIRED_CHANNELS = ("@BOOKzMA", "@ReferenceLibrary", "ghorbani_pdf")
 DEFAULT_TIMEZONE = "Asia/Tehran"
 
 MAX_REMINDERS = 5
