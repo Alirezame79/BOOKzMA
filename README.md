@@ -8,8 +8,3 @@
 
 ‍‍cp .env.sample .env
 docker compose up -d --build
-
-
-توی `.env` مقدار `BOT_TOKEN` و `POSTGRES_PASSWORD` رو بذار. ربات باید ادمین هر دو کانال باشه.
-
-پایتون، aiogram، Postgres، Alembic.
