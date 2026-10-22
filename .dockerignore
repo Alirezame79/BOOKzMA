@@ -1,7 +1,13 @@
 .env
+dev_run.py
 .env.*
 !.env.sample
 .git
+*.dump
+*.sql
+*.bak
+*.log
+logs/
 .github
 .venv
 __pycache__
