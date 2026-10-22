@@ -17,6 +17,8 @@ async def list_for_user(session: AsyncSession, user_id: int) -> list[Reminder]:
 
 async def add(session: AsyncSession, user_id: int, at: time) -> str:
     """نتیجه: ok / limit / dup"""
+    # Serialize additions for a user so concurrent requests cannot pass the cap.
+    await session.execute(select(User.id).where(User.id == user_id).with_for_update())
     count = await session.scalar(
         select(func.count()).select_from(Reminder).where(Reminder.user_id == user_id)
     )
@@ -32,10 +34,11 @@ async def add(session: AsyncSession, user_id: int, at: time) -> str:
     return "ok" if result.first() is not None else "dup"
 
 
-async def delete_one(session: AsyncSession, user_id: int, reminder_id: int) -> None:
-    await session.execute(
+async def delete_one(session: AsyncSession, user_id: int, reminder_id: int) -> bool:
+    result = await session.execute(
         delete(Reminder).where(Reminder.id == reminder_id, Reminder.user_id == user_id)
     )
+    return result.rowcount > 0
 
 
 async def delete_all_for_user(session: AsyncSession, user_id: int) -> None:

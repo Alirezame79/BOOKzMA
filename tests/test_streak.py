@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from BOOKzMA.services.streak import compute_streak, longest_streak, week_strip
+from BOOKzMA.services.streak import compute_streak, longest_streak, week_strip, weekly_summary
 
 TODAY = date(2026, 10, 21)
 
@@ -41,3 +41,13 @@ def test_longest():
 def test_week_strip():
     assert week_strip([ago(0), ago(1)], TODAY) == "▫️ ▫️ ▫️ ▫️ ▫️ ✅ ✅"
     assert week_strip([ago(1)], TODAY) == "▫️ ▫️ ▫️ ▫️ ▫️ ✅ 🟡"
+
+
+def test_weekly_summary_counts_only_the_last_seven_days():
+    summary = weekly_summary([ago(0), ago(2), ago(6), ago(7)], TODAY)
+
+    assert summary["start"] == ago(6)
+    assert summary["end"] == TODAY
+    assert summary["days_read"] == 3
+    assert summary["streak"] == 1
+    assert len(summary["days"]) == 7

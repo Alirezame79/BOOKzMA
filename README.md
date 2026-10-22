@@ -1,10 +1,36 @@
 # کتابخونه مرجع
-درود
-ربات تلگرام برای استریک مطالعه. هر روز دکمه «امروز خوندم» رو می‌زنی و ربات سر ساعتی که گذاشتی یادآوری می‌کنه.
 
-برای استفاده باید عضو @BOOKzMA و @ReferenceLibrary باشی.
+ربات تلگرام برای ثبت مطالعهٔ روزانه، پیگیری استریک و یادآوری. هر روز مطالعه‌ات را ثبت کن و خلاصهٔ هفتگی‌ات را ببین.
 
 ## اجرا
 
-‍‍cp .env.sample .env
+```bash
+cp .env.sample .env
+```
+
+مقادیر `BOT_TOKEN` و `POSTGRES_PASSWORD` را در `.env` قرار بده، سپس:
+
+```bash
+docker compose up -d --build
+```
+
+سرویس FastAPI روی پورت `8000` در دسترس است و مستند تعاملی API در `/docs` قرار دارد.
+
+## اتصال وب‌سایت
+
+برای ورود وب‌سایت، Telegram Web App `initData` را به `POST /api/v1/auth/telegram` بفرست. پاسخ شامل access token یک‌ساعته است؛ آن را در درخواست‌های بعدی با هدر `Authorization: Bearer <token>` بفرست. شناسهٔ کاربر از دادهٔ امضاشدهٔ تلگرام گرفته می‌شود و API شناسهٔ دلخواه کاربر را نمی‌پذیرد.
+
+Endpointهای نسخهٔ اول API:
+
+- `GET /health`
+- `GET /api/v1/me` و `PUT /api/v1/me/timezone`
+- `POST /api/v1/me/read`
+- `GET /api/v1/me/weekly-summary`
+- `GET`, `POST` و `DELETE /api/v1/me/reminders`
+
+اگر وب‌سایت روی origin دیگری است، originهای مجاز را با جداکنندهٔ کاما در `WEB_ORIGINS` تنظیم کن. برای محیط production از HTTPS استفاده کن و `initData` را در مرورگر ذخیره نکن؛ پس از دریافت access token، دادهٔ خام را دور بینداز.
+
+## داده و migration
+
+در شروع سرویس، migrationهای Alembic به‌صورت خودکار اجرا می‌شوند. migration نسخهٔ `0002` فقط وضعیت تلاش مجدد یادآورها را اضافه می‌کند و اطلاعات قبلی را حذف نمی‌کند.
 docker compose up -d --build

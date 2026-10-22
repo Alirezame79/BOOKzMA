@@ -1,5 +1,3 @@
-import asyncio
+import uvicorn
 
-from BOOKzMA.bot import main
-
-asyncio.run(main())
+uvicorn.run("BOOKzMA.api:create_app", factory=True, host="0.0.0.0", port=8000)

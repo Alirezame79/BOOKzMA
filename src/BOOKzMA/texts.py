@@ -74,6 +74,15 @@ def timezone(tz_label: str) -> str:
     )
 
 
+def weekly_summary(days_read: int, streak: int, best: int) -> str:
+    return (
+        "📊 <b>خلاصهٔ ۷ روز اخیر</b>\n\n"
+        f"📚 روزهای مطالعه: {fa(days_read)} از ۷\n"
+        f"🔥 استریک فعلی: {fa(streak)} روز\n"
+        f"🏆 بهترین استریک: {fa(best)} روز"
+    )
+
+
 def reminder_push(streak: int) -> str:
     if streak:
         return (

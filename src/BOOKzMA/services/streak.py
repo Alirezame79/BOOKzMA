@@ -36,3 +36,16 @@ def week_strip(days: Iterable[date], today: date) -> str:
         else:
             cells.append("▫️")
     return " ".join(cells)
+
+
+def weekly_summary(days: Iterable[date], today: date) -> dict[str, object]:
+    day_set = set(days)
+    week_days = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
+    read_days = [day for day in week_days if day in day_set]
+    return {
+        "start": week_days[0],
+        "end": week_days[-1],
+        "days_read": len(read_days),
+        "streak": compute_streak(day_set, today),
+        "days": [{"date": day, "read": day in day_set} for day in week_days],
+    }

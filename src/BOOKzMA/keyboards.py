@@ -25,6 +25,7 @@ def home_kb(read_today: bool) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [_btn(read_text, "read")],
+            [_btn("📊 خلاصهٔ هفتگی", "weekly")],
             [_btn("⏰ یادآورها", "rem"), _btn("🌍 منطقه زمانی", "tz")],
         ]
     )
@@ -63,3 +64,7 @@ def reminder_push_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[[_btn("📖 امروز خوندم", "read"), _btn("🏠 منو", "home")]]
     )
+
+
+def weekly_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[_btn("🔙 برگشت", "home")]])

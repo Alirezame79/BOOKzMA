@@ -1,6 +1,6 @@
 from aiogram import Router
 
-from BOOKzMA.handlers import reminders, start, streak, timezone
+from BOOKzMA.handlers import reminders, start, streak, timezone, weekly
 
 
 def get_router() -> Router:
@@ -11,5 +11,6 @@ def get_router() -> Router:
         streak.router,
         reminders.router,
         timezone.router,
+        weekly.router,
     )
     return router

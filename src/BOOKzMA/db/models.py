@@ -5,6 +5,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Integer,
     String,
     Time,
     UniqueConstraint,
@@ -45,3 +46,6 @@ class Reminder(Base):
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
     remind_at: Mapped[time] = mapped_column(Time)
     last_sent_on: Mapped[date | None] = mapped_column(Date)
+    attempt_date: Mapped[date | None] = mapped_column(Date)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    retry_after_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

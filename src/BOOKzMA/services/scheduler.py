@@ -1,9 +1,15 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot
-from aiogram.exceptions import TelegramAPIError, TelegramForbiddenError, TelegramRetryAfter
+from aiogram.exceptions import (
+    TelegramAPIError,
+    TelegramForbiddenError,
+    TelegramNetworkError,
+    TelegramRetryAfter,
+    TelegramServerError,
+)
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from BOOKzMA import keyboards, texts
@@ -17,6 +23,7 @@ log = logging.getLogger(__name__)
 CHECK_EVERY = 30
 # یادآوری که بیشتر از این دیر شده (مثلاً ربات خاموش بوده) دیگه فرستاده نمی‌شه
 MAX_LATE = timedelta(minutes=10)
+MAX_ATTEMPTS_PER_DAY = 3
 
 
 async def reminder_loop(bot: Bot, session_pool: async_sessionmaker[AsyncSession]) -> None:
@@ -43,20 +50,29 @@ async def send_due(bot: Bot, session_pool: async_sessionmaker[AsyncSession]) -> 
             today = now.date()
             if reminder.last_sent_on == today:
                 continue
+            if reminder.attempt_date != today:
+                reminder.attempt_date = today
+                reminder.attempt_count = 0
+                reminder.retry_after_until = None
+            if reminder.attempt_count >= MAX_ATTEMPTS_PER_DAY:
+                continue
+            if reminder.retry_after_until is not None and reminder.retry_after_until > now:
+                continue
             due = datetime.combine(today, reminder.remind_at, tzinfo=now.tzinfo)
             late = now - due
             if late < timedelta(0) or late > MAX_LATE:
                 continue
 
-            reminder.last_sent_on = today
-
             # کسی که امروز خونده یادآوری نمی‌گیره
             if await readings.has_read(session, user.id, today):
+                reminder.last_sent_on = today
                 await session.commit()
                 continue
 
             days = await readings.get_days(session, user.id)
             text = texts.reminder_push(compute_streak(days, today))
+            reminder.attempt_count += 1
+            await session.commit()
             try:
                 await bot.send_message(user.id, text, reply_markup=keyboards.reminder_push_kb())
             except TelegramForbiddenError:
@@ -64,12 +80,23 @@ async def send_due(bot: Bot, session_pool: async_sessionmaker[AsyncSession]) -> 
                 await reminders_repo.delete_all_for_user(session, user.id)
                 log.info("user %s blocked the bot, reminders removed", user.id)
             except TelegramRetryAfter as e:
-                log.warning("rate limited, waiting %s s", e.retry_after)
-                reminder.last_sent_on = None
+                log.warning("rate limited, retrying after %s s", e.retry_after)
+                reminder.retry_after_until = datetime.now(timezone.utc) + timedelta(
+                    seconds=e.retry_after
+                )
                 await session.commit()
                 await asyncio.sleep(e.retry_after)
                 continue
+            except (TelegramNetworkError, TelegramServerError):
+                log.exception("temporary Telegram failure for user %s; will retry", user.id)
+                await session.commit()
+                continue
             except TelegramAPIError:
                 log.exception("could not send reminder to %s", user.id)
+                reminder.attempt_count = MAX_ATTEMPTS_PER_DAY
+                await session.commit()
+                continue
+            reminder.last_sent_on = today
+            reminder.retry_after_until = None
             await session.commit()
             await asyncio.sleep(0.05)

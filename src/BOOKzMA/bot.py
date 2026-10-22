@@ -1,5 +1,4 @@
 import asyncio
-import contextlib
 import logging
 
 from aiogram import Bot, Dispatcher
@@ -9,7 +8,6 @@ from aiogram.exceptions import TelegramAPIError
 from aiogram.types import BotCommand
 
 from BOOKzMA.config import Settings
-from BOOKzMA.db.session import create_session_pool
 from BOOKzMA.handlers import get_router
 from BOOKzMA.middlewares.db import DbSessionMiddleware
 from BOOKzMA.middlewares.membership import MembershipMiddleware
@@ -24,14 +22,7 @@ COMMANDS = [
 ]
 
 
-async def main() -> None:
-    settings = Settings()
-    logging.basicConfig(
-        level=settings.log_level,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
-
-    engine, session_pool = create_session_pool(settings.database_url)
+async def start_bot(settings: Settings, session_pool) -> tuple[Bot, list[asyncio.Task]]:
     bot = Bot(
         token=settings.bot_token.get_secret_value(),
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
@@ -46,14 +37,9 @@ async def main() -> None:
 
     reminders_task = asyncio.create_task(reminder_loop(bot, session_pool))
     try:
-        try:
-            await bot.set_my_commands(COMMANDS)
-        except TelegramAPIError:
-            log.warning("set_my_commands failed, continuing")
-        await dp.start_polling(bot)
-    finally:
-        reminders_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await reminders_task
-        await engine.dispose()
-        await bot.session.close()
+        await bot.set_my_commands(COMMANDS)
+    except TelegramAPIError:
+        log.warning("set_my_commands failed, continuing")
+    polling_task = asyncio.create_task(dp.start_polling(bot))
+    log.info("Telegram polling task started")
+    return bot, [reminders_task, polling_task]

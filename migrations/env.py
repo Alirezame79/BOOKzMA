@@ -9,7 +9,7 @@ from BOOKzMA.config import DatabaseSettings
 from BOOKzMA.db.base import Base
 
 target_metadata = Base.metadata
-database_url = DatabaseSettings().database_url
+database_url = context.config.attributes.get("database_url", DatabaseSettings().database_url)
 
 
 def run_offline() -> None:
