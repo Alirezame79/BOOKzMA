@@ -10,6 +10,11 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+*.dump
+*.sql
+*.bak
+*.log
+logs/
 
 .pytest_cache/
 .ruff_cache/
