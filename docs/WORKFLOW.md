@@ -28,6 +28,14 @@ git switch --track -c main origin/main
 
 اگر worktree کثیف است، تغییرهای موجود را پاک، stash یا جابه‌جا نکن. اگر همان کار در حال انجام روی یک branch غیر-main است، همان را ادامه بده؛ اگر مالکیت/ارتباط تغییرها روشن نیست، پیش از جابه‌جایی یا commit از مالک بپرس. روی `main` ویرایش نکن.
 
+## چند مشارکت‌کننده و چند feature
+
+- برای هر issue یک مالک و یک branch اختصاصی تعیین کن؛ روی branch مشترک یا `main` کار نکنید. نام branch شمارهٔ issue داشته باشد، مانند `feat/123-admin-export` یا `fix/456-reminder-time`.
+- پیش از شروع، وابستگی و فایل‌های مشترک را در issue اعلام کن. دو feature مستقل می‌توانند موازی باشند، اما feature وابسته باید بعد از merge شدن PR پایه از `main` تازه branch بگیرد.
+- هر PR یک موضوع و scope قابل review داشته باشد و با `Closes #123` به issue وصل شود. Conflict را با هماهنگی ownerها حل کن، نه با بازنویسی خاموش تغییر همکار.
+- در GitHub repository settings برای `main` یک branch protection rule/ruleset فعال کن: PR اجباری، CI status checks اجباری، منع force-push و حذف branch اصلی. تعداد approval را متناسب با تیم انتخاب کن.
+- گزینهٔ **Automatically delete head branches** را در GitHub فعال کن. پس از merge اگر فعال نیست، remote feature branch را دستی حذف کن؛ local branch را هم پس از رفتن به `main` با `git branch -d <branch>` پاک کن.
+
 ## تست محلی
 
 `dev_run.py` و `.env` خصوصی و local-only هستند؛ آن‌ها را در Git نگذار و token/proxy را در پیام یا log منتشر نکن.
@@ -64,7 +72,7 @@ PR را از feature branch به `main` باز کن. پس از CI/review آن ر
 
 ## Tag و استقرار سرور
 
-پس از merge و تأیید نسخه، version پروژه را به‌روز کن و tag annotated بساز:
+Tag برای release است، نه هر branch/PR. اگر هر feature بلافاصله قابل deploy است، پس از merge version پروژه را bump و tag annotated بساز. اگر چند feature باهم deploy می‌شوند، یک version/tag برای snapshot ترکیبی کافی است. پیش از tag، مطمئن شو version فایل‌های پروژه با tag هماهنگ است:
 
 ```sh
 git switch main
