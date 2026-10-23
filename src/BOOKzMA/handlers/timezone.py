@@ -29,6 +29,11 @@ async def cmd_timezone(message: Message, session: AsyncSession, state: FSMContex
         await render_timezone(message, session, message.from_user)
 
 
+@router.message(F.text == "🌍 منطقه زمانی")
+async def on_menu_timezone(message: Message, session: AsyncSession, state: FSMContext) -> None:
+    await cmd_timezone(message, session, state)
+
+
 @router.callback_query(F.data == "tz")
 async def on_timezone(callback: CallbackQuery, session: AsyncSession) -> None:
     await callback.answer()

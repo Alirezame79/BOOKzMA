@@ -45,6 +45,11 @@ async def cmd_reminders(message: Message, session: AsyncSession, state: FSMConte
         await render_reminders(message, session, message.from_user)
 
 
+@router.message(F.text == "⏰ یادآورها")
+async def on_menu_reminders(message: Message, session: AsyncSession, state: FSMContext) -> None:
+    await cmd_reminders(message, session, state)
+
+
 @router.callback_query(F.data == "rem")
 async def on_reminders(callback: CallbackQuery, session: AsyncSession, state: FSMContext) -> None:
     await state.clear()

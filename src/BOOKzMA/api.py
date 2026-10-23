@@ -23,7 +23,9 @@ from BOOKzMA.bot import start_bot
 from BOOKzMA.config import Settings
 from BOOKzMA.db.session import create_session_pool
 from BOOKzMA.repositories import readings, reminders, users
+from BOOKzMA.repositories import streak_freezes
 from BOOKzMA.services.streak import longest_streak, weekly_summary
+from BOOKzMA.services.streak_freezes import on_read
 from BOOKzMA.utils import local_today
 
 log = logging.getLogger(__name__)
@@ -175,8 +177,9 @@ async def _load_user(session: AsyncSession, identity: Identity):
 async def _get_weekly_summary(session: AsyncSession, user_id: int, tz_name: str):
     today = local_today(tz_name)
     days = await readings.get_days(session, user_id)
-    summary = weekly_summary(days, today)
-    summary["longest_streak"] = longest_streak(days)
+    frozen_days = await streak_freezes.used_days(session, user_id)
+    summary = weekly_summary(days, today, frozen_days)
+    summary["longest_streak"] = longest_streak(days, frozen_days)
     return summary
 
 
@@ -295,6 +298,8 @@ def create_app(
         user = await _load_user(session, identity)
         today = local_today(user.timezone)
         created = await readings.mark_read(session, user.id, today)
+        if created:
+            await on_read(session, user.id, today)
         await session.commit()
         return ReadResponse(
             created=created,

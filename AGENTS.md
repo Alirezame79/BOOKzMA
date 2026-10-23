@@ -19,6 +19,13 @@ Never assume: open the actual file and verify the behavior before documenting or
 - Migration on a disposable/local database only: `alembic upgrade head`. The application also runs migrations at startup by default. Never run Alembic against production.
 - CI uses Python 3.12, Ruff, Alembic, pytest, and a PostgreSQL service; see `.github/workflows/ci.yml`.
 
+## Branch and Release Workflow
+
+- Before every task, inspect `git branch --show-current` and `git status --short`. Work on a new task branch based on up-to-date `main`; never edit `main` directly. Follow [docs/WORKFLOW.md](docs/WORKFLOW.md).
+- Preserve dirty user changes. Do not discard, stash, or switch away from unclear changes; ask before mixing unrelated work. If the current non-main branch already contains the same in-progress task, continue it rather than moving its changes.
+- Do not commit, push, merge, or tag unless explicitly asked. At the end of every feature, provide branch, test/local-run, Docker/database, PR/merge/tag, and post-merge server deployment guidance.
+- Never recommend adding the ignored private `dev_run.py` to GitHub. Keep it and `.env` local; only propose a separate placeholder example after explicit approval.
+
 ## Current Layout and Change Boundaries
 
 - Bot handlers are in `src/BOOKzMA/handlers/`; they orchestrate repositories and services. Keep SQL in repositories. Register a new bot router in `src/BOOKzMA/handlers/__init__.py`.
@@ -26,6 +33,13 @@ Never assume: open the actual file and verify the behavior before documenting or
 - `repositories/` has SQLAlchemy queries and no aiogram imports. `services/streak.py` contains reusable date calculations; `services/scheduler.py` is an asynchronous Telegram delivery loop, not a framework-independent service.
 - User-facing bot text belongs in `texts.py`; inline keyboards belong in `keyboards.py`. `utils.py` contains parsing, digit conversion, and timezone helpers.
 - Bot middleware provides one async DB session per update; handlers commit their writes. API routes manage commits explicitly.
+
+## Feature Completeness
+
+- Treat each approved feature as an end-to-end product change, not only its primary handler. Before editing, trace all affected user flows, admin controls and analytics, persistence/migrations, authorization/privacy, errors/retries, config/deployment, tests, and documentation.
+- For every feature, explicitly decide whether the admin panel needs a new action, KPI, activity event, filter, or report. If yes, implement and test it in the same feature; if no, record why in its spec/PR summary. Never leave admin analytics silently stale when adding a measurable feature.
+- Check all clients and paths that share the behavior (Telegram menu/commands/callbacks, API, scheduler/background jobs, profile/weekly summaries, admin dashboard, and leaderboard as applicable). Update the relevant surfaces together or document a justified non-applicability.
+- Update current-behavior docs, ROADMAP/spec, tests, and operational handoff in the same task. Use the completeness checklist in `.github/skills/add-feature/SKILL.md` and `docs/DOCS_MAINTENANCE.md`.
 
 ## Hard Rules
 

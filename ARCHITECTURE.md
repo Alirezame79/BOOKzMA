@@ -6,7 +6,7 @@ This repository contains a Persian Telegram reading bot and a FastAPI HTTP API. 
 
 - `src/BOOKzMA/__main__.py` starts `BOOKzMA.api:create_app` through Uvicorn. `Dockerfile` uses the same factory and binds port 8000 inside the container.
 - `create_app()` runs Alembic upgrades at startup by default, creates an async SQLAlchemy engine/session pool, and starts the bot unless its factory options disable those behaviors.
-- `bot.py` creates an aiogram `Dispatcher`, registers `DbSessionMiddleware` at update scope, and registers `MembershipMiddleware` for messages and callback queries. It sets the bot command list and starts polling plus `services/scheduler.py` tasks.
+- `bot.py` creates an aiogram `Dispatcher`, registers `DbSessionMiddleware` at update scope, and registers `MembershipMiddleware` for messages and callback queries. The middleware exempts configured admin IDs from the membership gate and records UTC daily interaction. The bot scopes `/admin` to admins and starts polling, reminder, and durable broadcast tasks.
 - Bot handlers live in `handlers/`; API routes are declared inside `api.create_app()`. Both paths call repositories directly and commit their own writes. `services/streak.py` contains date-based calculations; the reminder scheduler is asynchronous but depends on aiogram and repositories.
 - `repositories/` contains SQLAlchemy queries and PostgreSQL upserts. `db/` contains the declarative base, models, and async session-pool factory.
 - `texts.py` holds user-facing Persian bot messages; `keyboards.py` constructs inline keyboards.
@@ -14,13 +14,14 @@ This repository contains a Persian Telegram reading bot and a FastAPI HTTP API. 
 ## Data and State
 
 - SQLAlchemy async models persist users, local reading dates, and reminders in PostgreSQL. Exact columns, constraints, and externally visible limits are listed in [BOT_GUIDE.md](BOT_GUIDE.md).
-- Alembic revisions are `0001` and `0002`. Do not edit an applied revision; add a new migration for schema changes.
+- Alembic revisions `0001`–`0005` add freeze events, daily activity/profile fields, and durable broadcast state. Do not edit an applied revision; add a new migration for schema changes.
+- Freeze events remain separate from reading logs. Analytics read UTC activity and reading data; broadcast campaigns use per-recipient durable delivery records.
 - Conversation state and membership cache are process-local; exact bot state and cache behavior are documented in [BOT_GUIDE.md](BOT_GUIDE.md).
 
 ## Operational Limits
 
 - `reminder_loop` checks reminders in the same process as the bot and may perform additional database queries per candidate. Detailed timing and retry behavior are in [BOT_GUIDE.md](BOT_GUIDE.md); the observed query hot path is in [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
-- Polling, the reminder task, FSM state, and membership cache are process-local. The current deployment is designed for a single application instance; replicas would duplicate polling and reminder work and would not share FSM/cache state.
+- Polling, reminder/broadcast tasks, FSM state, membership cache, and the broadcast start lock are process-local. The current deployment is designed for one application instance; replicas would duplicate polling and background work and would not share FSM/cache/lock state.
 - The API health endpoint reports process-level `{"status":"ok"}` and does not verify database or Telegram availability.
 
 ## Local and Production

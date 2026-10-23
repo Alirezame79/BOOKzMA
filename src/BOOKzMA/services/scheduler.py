@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from BOOKzMA import keyboards, texts
 from BOOKzMA.repositories import readings
+from BOOKzMA.repositories import streak_freezes
 from BOOKzMA.repositories import reminders as reminders_repo
 from BOOKzMA.services.streak import compute_streak
 from BOOKzMA.utils import local_now
@@ -70,7 +71,8 @@ async def send_due(bot: Bot, session_pool: async_sessionmaker[AsyncSession]) -> 
                 continue
 
             days = await readings.get_days(session, user.id)
-            text = texts.reminder_push(compute_streak(days, today))
+            frozen_days = await streak_freezes.used_days(session, user.id)
+            text = texts.reminder_push(compute_streak(days, today, frozen_days))
             reminder.attempt_count += 1
             await session.commit()
             try:

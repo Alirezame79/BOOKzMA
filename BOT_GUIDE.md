@@ -4,7 +4,7 @@ This guide records behavior verified in `src/BOOKzMA/`, migrations, and configur
 
 ## Commands and Bot Interface
 
-`bot.py` registers these Telegram commands with `set_my_commands`: `/start`, `/reminders`, `/timezone`. There is no `MenuButton` or `ReplyKeyboardMarkup`; the bot uses inline keyboards.
+`bot.py` registers `/start`, `/reminders`, `/timezone`, `/profile`, and `/support` for all users. Configured admins also receive `/admin` in their chat command scope. `/start` shows the persistent Persian reply keyboard; contextual flows continue to use inline keyboards. Admin entry points are checked against `ADMIN_TELEGRAM_IDS` in handlers, independently of menu visibility.
 
 Callback payloads implemented in handlers/keyboards:
 
@@ -20,8 +20,15 @@ Callback payloads implemented in handlers/keyboards:
 | `rem_custom` | Request a custom reminder time |
 | `tz` | Show timezone choices |
 | `tz_set:<index>` | Set one of the configured timezone choices |
+| `leaderboard:toggle` | Toggle the user's public leaderboard presence |
+| `leaderboard` | Show the current-streak leaderboard (display names only) |
+| `admin:stats` | Show admin analytics; server-side admin check required |
+| `admin:broadcast` | Start a text campaign draft; server-side admin check required |
+| `broadcast:start:<id>` | Confirm an owned campaign |
+| `broadcast:status:<id>` | Show counts for an owned campaign |
+| `broadcast:cancel:<id>` | Cancel an owned campaign |
 
-The only declared FSM state is `handlers.reminders.AddTime.waiting`; arbitrary reminder times are parsed as 24-hour `HH[:MM]` with Persian or Arabic digits accepted. The default aiogram FSM storage is in-memory.
+FSM states are `handlers.reminders.AddTime.waiting` and `handlers.admin.NewBroadcast.waiting_for_text`; FSM storage remains in-memory. Arbitrary reminder times are parsed as 24-hour `HH[:MM]` with Persian or Arabic digits accepted.
 
 ## HTTP API
 
@@ -45,11 +52,17 @@ The existing FastAPI app is in `api.py`; the container runs it through Uvicorn. 
 
 | Table | Current shape and invariant |
 | --- | --- |
-| `users` | Telegram ID primary key; optional username; timezone defaults to `Asia/Tehran`; creation timestamp |
+| `users` | Telegram ID primary key; optional display name/username; timezone defaults to `Asia/Tehran`; first-start time; leaderboard opt-out and permanent broadcast-unavailable flags |
 | `reading_logs` | `(user_id, day)` composite primary key; user foreign key cascades on delete |
+| `streak_freezes` | Earned/used freeze events, separate from reading logs; unique `(user_id, kind, day)` |
+| `activity_days` | One row per user and UTC date; cascades with user deletion |
+| `broadcast_campaigns` | Admin-owned text campaign and state |
+| `broadcast_deliveries` | Per-campaign/per-user state, attempt count and last error; cascades on user/campaign deletion. Users with permanent Telegram delivery failures are excluded from later broadcasts. |
 | `reminders` | Integer primary key; user foreign key; time; last-sent date; retry date/count/deadline; unique `(user_id, remind_at)` |
 
-Streak is computed from reading dates in the user's local timezone; it is not stored. A streak remains current through today if the user read yesterday. Weekly summaries cover today and the preceding six local dates. Reminders are capped at five per user; presets are `08:00`, `13:00`, `18:00`, `21:00`, and `23:00`. The scheduler scans every 30 seconds, skips sends over ten minutes late, and caps retries at three per reminder per local day.
+Streak is computed from read dates plus explicitly used freeze dates; freeze days are not reported as reading. Users start with zero freezes, earn one per seven consecutive real reading days, and hold at most two. One missed day is automatically protected when reading resumes the next day; freezes cannot cover consecutive missed days. Weekly summaries cover today and the preceding six local dates. Reminders are capped at five per user; presets are `08:00`, `13:00`, `18:00`, `21:00`, and `23:00`. The scheduler scans every 30 seconds, skips sends over ten minutes late, and caps retries at three per reminder per local day.
+
+Admin analytics count starts recorded from the new deployment onward, UTC daily interactions after successful membership checks, and reading logs separately. D1/D7/D30 return rates use only users with enough post-deployment observation time. The displayed seven-day chart is text-based. Broadcast campaigns are text-only, confirmed by an admin, serialized to one active campaign in the single application process, and sent at 5 messages/second with bounded retries and persisted `RetryAfter` deadlines. Delivery state is persisted and inflight deliveries are retried after restart; a crash after Telegram accepts a message but before the DB update can cause a duplicate.
 
 Membership checks run for bot messages and callbacks, except the `check_join` callback itself. Required channels come from `REQUIRED_CHANNELS`, defaulting to an empty list if unset. Only successful checks are cached, per process, for 300 seconds. A membership-check Telegram error is treated as not joined.
 
@@ -62,9 +75,12 @@ Membership checks run for bot messages and callbacks, except the `check_join` ca
 | `DATABASE_URL` | `DatabaseSettings` / Compose | Optional in local settings (default points to local PostgreSQL); Compose constructs the bot URL from the password |
 | `REQUIRED_CHANNELS` | `constants.py` | Optional comma-separated channel identifiers; defaults to none |
 | `WEB_ORIGINS` | `Settings` / API | Optional comma-separated CORS origins |
+| `ADMIN_TELEGRAM_IDS` | `Settings` / bot | Optional comma-separated numeric Telegram IDs; empty means no admins |
+| `GITHUB_URL` | `Settings` / support menu | Optional GitHub project URL; only GitHub repository URLs are shown |
+| `SUPPORT_TELEGRAM_USERNAME` | `Settings` / support menu | Optional Telegram username for private financial-support contact |
 | `LOG_LEVEL` | `Settings` | Defaults to `INFO`; no logging configuration consuming it was found |
 
-`.env.sample` documents the variables above and an optional placeholder `DATABASE_URL` for local tools. Code supplies a default and Compose overrides it for the bot container.
+`.env.sample` documents the variables above and an optional placeholder `DATABASE_URL` for local tools. Set the real owner ID and support destinations in the runtime environment; do not commit them. Code supplies a default database URL and Compose overrides it for the bot container.
 
 ## Verified Caveats
 

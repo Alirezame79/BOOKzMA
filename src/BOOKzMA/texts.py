@@ -1,6 +1,7 @@
 from BOOKzMA.constants import MAX_REMINDERS, MILESTONES
 from BOOKzMA.utils import fa
 
+MAX_STREAK_FREEZES = 2
 JOIN_GATE = "برای استفاده از ربات باید عضو کانال‌های زیر باشی. عضو که شدی دکمه «عضو شدم» رو بزن:"
 JOIN_FIRST = "اول باید عضو کانال‌ها بشی 🙂"
 NOT_JOINED = "هنوز عضو همه کانال‌ها نیستی 🙂"
@@ -16,7 +17,7 @@ BAD_TIME = "فرمت ساعت درست نیست 🤔 مثلاً <code>21:30</cod
 ALREADY_READ = "امروز رو قبلاً ثبت کردی ✅"
 
 
-def home(streak: int, best: int, strip: str, read_today: bool) -> str:
+def home(streak: int, best: int, strip: str, read_today: bool, freeze_balance: int) -> str:
     if streak:
         streak_line = f"🔥 <b>{fa(streak)}</b> روز پشت‌سرهم"
     else:
@@ -33,20 +34,36 @@ def home(streak: int, best: int, strip: str, read_today: bool) -> str:
         "📚 <b>کتابخونه مرجع</b>\n\n"
         f"{streak_line}\n"
         f"🏆 رکورد: {fa(best)} روز\n\n"
+        f"🛡️ فریز استریک: {fa(freeze_balance)} از {fa(MAX_STREAK_FREEZES)}\n\n"
         "۷ روز اخیر (آخری = امروز):\n"
         f"{strip}\n\n"
         f"{status}"
     )
 
 
-def read_toast(streak: int, created: bool) -> str:
+def read_toast(
+    streak: int,
+    created: bool,
+    freeze_used: bool = False,
+    freeze_earned: bool = False,
+    freeze_balance: int = 0,
+) -> str:
     if not created:
         return ALREADY_READ
     if streak in MILESTONES:
-        return f"🎉 {fa(streak)} روز پشت‌سرهم! عالیه 🔥"
-    if streak == 1:
-        return "شروع خوبیه! استریک ۱ روزه 🔥"
-    return f"🔥 {fa(streak)} روز پشت‌سرهم، ادامه بده"
+        message = f"🎉 {fa(streak)} روز پشت‌سرهم! عالیه 🔥"
+    elif streak == 1:
+        message = "شروع خوبیه! استریک ۱ روزه 🔥"
+    else:
+        message = f"🔥 {fa(streak)} روز پشت‌سرهم، ادامه بده"
+    if freeze_used:
+        message += "\n🛡️ فریزت دیروز رو پوشش داد و استریکت حفظ شد."
+    if freeze_earned:
+        message += (
+            f"\n🎁 یک فریز جایزه گرفتی؛ موجودی: "
+            f"{fa(freeze_balance)}/{fa(MAX_STREAK_FREEZES)}"
+        )
+    return message
 
 
 def reminders(times: list[str], tz_label: str) -> str:
@@ -74,12 +91,61 @@ def timezone(tz_label: str) -> str:
     )
 
 
-def weekly_summary(days_read: int, streak: int, best: int) -> str:
+def weekly_summary(days_read: int, streak: int, best: int, freeze_balance: int) -> str:
     return (
         "📊 <b>خلاصهٔ ۷ روز اخیر</b>\n\n"
         f"📚 روزهای مطالعه: {fa(days_read)} از ۷\n"
         f"🔥 استریک فعلی: {fa(streak)} روز\n"
-        f"🏆 بهترین استریک: {fa(best)} روز"
+        f"🏆 بهترین استریک: {fa(best)} روز\n"
+        f"🛡️ فریزهای موجود: {fa(freeze_balance)}/{fa(MAX_STREAK_FREEZES)}"
+    )
+
+
+def profile(streak: int, best: int, freeze_balance: int, opted_out: bool) -> str:
+    participation = "خاموش" if opted_out else "روشن"
+    return (
+        "👤 <b>پروفایل من</b>\n\n"
+        f"🔥 استریک فعلی: {fa(streak)} روز\n"
+        f"🏆 بهترین استریک: {fa(best)} روز\n"
+        f"🛡️ فریزهای موجود: {fa(freeze_balance)}/{fa(MAX_STREAK_FREEZES)}\n"
+        f"🏅 حضور در لیدربورد: {participation}"
+    )
+
+
+def support() -> str:
+    return (
+        "💚 <b>حمایت از پروژه</b>\n\n"
+        "با ستاره‌دادن به پروژه در گیت‌هاب یا پیام خصوصی برای دریافت راهنمای حمایت مالی با Gram، "
+        "به ادامهٔ توسعه کمک کن."
+    )
+
+
+def admin_dashboard(stats: dict[str, int], series: list[tuple[object, int]]) -> str:
+    maximum = max((count for _, count in series), default=0)
+    chart = []
+    for day, count in series:
+        width = round(count / maximum * 10) if maximum else 0
+        chart.append(f"{day:%m/%d} {'█' * width or '·'} {fa(count)}")
+    return (
+        "📊 <b>گزارش بات (UTC)</b>\n\n"
+        f"👤 کاربران ثبت‌شده: {fa(stats['users'])}\n"
+        f"🚀 شروع‌کننده‌ها: {fa(stats['starters'])}\n"
+        f"🆕 شروع در ۷/۳۰ روز: {fa(stats['starts_7d'])} / {fa(stats['starts_30d'])}\n"
+        f"🟢 فعال روزانه/هفتگی/ماهانه: "
+        f"{fa(stats['dau'])} / {fa(stats['wau'])} / {fa(stats['mau'])}\n"
+        f"⚪ شروع‌کنندهٔ غیرفعال در ۳۰ روز: {fa(stats['inactive_30d'])}\n"
+        f"📚 مطالعه‌کننده در ۷/۳۰ روز: "
+        f"{fa(stats['readers_7d'])} / {fa(stats['readers_30d'])}\n"
+        f"📖 روزهای ثبت مطالعه در ۷/۳۰ روز: "
+        f"{fa(stats['reading_days_7d'])} / {fa(stats['reading_days_30d'])}\n"
+        f"🔁 بازگشت D1/D7/D30: {fa(stats['retention_d1'])}% / "
+        f"{fa(stats['retention_d7'])}% / {fa(stats['retention_d30'])}%\n"
+        f"🔥 دارای استریک: {fa(stats['users_with_streak'])} · "
+        f"بیشترین جاری/رکورد: {fa(stats['max_current_streak'])} / "
+        f"{fa(stats['max_record_streak'])} روز\n"
+        f"⏰ یادآورها: {fa(stats['reminders'])}\n"
+        f"🛡️ فریزهای مصرف‌شده: {fa(stats['freezes_used'])}\n\n"
+        "<b>فعالیت ۷ روز اخیر</b>\n" + "\n".join(chart)
     )
 
 

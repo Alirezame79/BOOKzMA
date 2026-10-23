@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from BOOKzMA import keyboards, texts
 from BOOKzMA.handlers.common import show
 from BOOKzMA.repositories import readings, users
+from BOOKzMA.repositories import streak_freezes
 from BOOKzMA.services.streak import compute_streak, longest_streak, weekly_summary
 from BOOKzMA.utils import local_today
 
@@ -18,12 +19,16 @@ async def on_weekly_summary(callback: CallbackQuery, session: AsyncSession) -> N
     await session.commit()
     today = local_today(user.timezone)
     days = await readings.get_days(session, user.id)
-    summary = weekly_summary(days, today)
+    frozen_days = await streak_freezes.used_days(session, user.id)
+    summary = weekly_summary(days, today, frozen_days)
     await callback.answer()
     await show(
         callback,
         texts.weekly_summary(
-            summary["days_read"], compute_streak(days, today), longest_streak(days)
+            summary["days_read"],
+            compute_streak(days, today, frozen_days),
+            longest_streak(days, frozen_days),
+            await streak_freezes.balance(session, user.id),
         ),
         keyboards.weekly_kb(),
     )

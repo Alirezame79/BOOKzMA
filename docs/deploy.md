@@ -20,12 +20,18 @@ docker compose logs --tail=30 bot
 
 ## آپدیت
 
+تغییر را اول با PR به `main` merge و نسخه را tag کن. روی سرور پیش از به‌روزرسانی backup بگیر و `.env` را با envهای موردنیاز نسخه هماهنگ کن؛ مقدار secret را وارد Git یا log نکن. سپس tag تأییدشده را deploy کن:
+
 ```bash
-git pull
-docker compose up -d --build
+cd /path/to/BOOKzMA
+git fetch origin --tags
+git switch --detach vX.Y.Z
+docker compose up -d --build bot
+docker compose ps
+docker compose logs --tail=100 bot
 ```
 
-migrationها موقع بالا اومدن ربات خودشون اجرا می‌شن.
+این دستور image سرویس bot را rebuild می‌کند و volume دیتابیس را حفظ می‌کند. migrationها در startup اجرا می‌شوند؛ logها را برای migration و شروع polling بررسی کن. برای deploy `docker compose down -v` اجرا نکن. روال کامل در [docs/WORKFLOW.md](WORKFLOW.md) است.
 
 ## بکاپ
 

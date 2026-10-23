@@ -1,15 +1,16 @@
 # Testing
 
-The current suite has pure tests for streak/date calculations, time parsing, Persian digits, API auth/helpers/routes, and a PostgreSQL concurrency test for the five-reminder limit. The latter is skipped unless `TEST_DATABASE_URL` points to a disposable PostgreSQL database. Do not use production data or credentials.
+The current suite has pure tests for streak/date calculations and freezes, admin configuration/callback parsing, time parsing, Persian digits, API auth/helpers/routes, and PostgreSQL integration tests for reminder concurrency, freeze persistence, and broadcast confirmation/cancellation. Database tests are skipped unless `TEST_DATABASE_URL` points to a disposable PostgreSQL database. Do not use production data or credentials.
 
-## Audit Environment Snapshot
+## Local Environment Snapshot
 
-At the documentation audit, both the host and existing `.venv` used Python 3.14.8, while `pyproject.toml` and CI target Python 3.12. Ruff passed. Pytest collection stopped in `tests/test_api.py`: the installed Starlette `TestClient` requested `httpx2`, which was not installed. No packages were installed. Re-run checks in a fresh supported Python 3.12 environment; do not treat this snapshot as a pass or as proof CI fails.
+The current host and `.venv` use Python 3.14, while `pyproject.toml` and CI target Python 3.12. `requirements-dev.txt` includes `httpx2` for the installed FastAPI/Starlette TestClient. The suite passes locally after installing dev requirements; PostgreSQL integration tests skip unless `TEST_DATABASE_URL` points to a disposable database. CI runs migrations and tests on Python 3.12 with PostgreSQL, which remains the authoritative migration check.
 
 | Change | Minimum verification |
 | --- | --- |
 | Pure date/time logic | Unit tests for boundaries, timezone changes, DST, missed days, duplicates, and current-day behavior as applicable |
 | Repository or transaction behavior | Integration test against disposable PostgreSQL; include duplicate/concurrent writes and relevant constraints |
+| Durable broadcast worker | Fake Telegram responses for pacing, RetryAfter, bounded retry, blocked recipients, cancel/restart recovery and the duplicate-delivery failure window |
 | Bot handler or callback | Pure parsing/validation tests where practical; manual smoke test with the separate test bot, including invalid input and Telegram failures |
 | API route or authentication | Unit/helper and route tests for authorization, invalid/expired input, ownership, validation, and response contract |
 | Alembic migration | Compare migration with models; apply to an empty disposable PostgreSQL DB and verify schema. Never target production |

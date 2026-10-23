@@ -16,12 +16,16 @@ Target scale is roughly 500–1,000 daily active users: keep the system simple, 
 
 `services/scheduler.py` wakes every 30 seconds and loads every reminder with its user. It then iterates in Python and may query reading status and all reading dates for each due candidate while holding the session. This is an N+1-style hot path as reminder volume grows. Do not optimize without measuring; a future change could select the due time window in SQL and add a supporting index after checking timezone semantics and the query plan.
 
-## Future Work That Needs Design
+## Current Broadcast Limits
 
-- Bulk messaging needs a durable queue, per-chat/global rate limiting, per-recipient status, bounded retries, and restart recovery.
+- Text broadcasts use a durable DB queue, one active campaign, per-recipient status, 5 messages/second pacing, bounded retries, and restart recovery. The process is single-instance only; replicas require DB-level worker claiming/locking and a global rate limiter.
+- Telegram send and DB commit cannot be atomic, so a crash after Telegram accepts a message but before the delivery state is committed can duplicate one message after recovery.
+- Campaigns are text-only and target all users not marked unavailable after a permanent Telegram failure. Media, segmentation, user opt-out, and campaign/report retention controls need a separate reviewed spec.
+
+## Future Work That Needs Design
 - Analytics may need pre-aggregation after measuring the cost of raw queries and defining “active user.”
 - Image generation is CPU-bound: keep it off the event loop, bound per-user work, and cache reusable assets.
-- Multiple instances or webhook mode require shared FSM state, membership cache strategy, and exclusive reminder claiming before scaling out.
+- Multiple instances or webhook mode require shared FSM state, membership cache strategy, and exclusive reminder/broadcast claiming before scaling out.
 
 ## Optimization Method
 
