@@ -21,8 +21,10 @@ python -m pip install -r requirements-dev.txt
 cp .env.sample .env
 docker compose up -d db
 alembic upgrade head
-python dev_run.py
+PYTHONPATH=src python dev_run.py
 ```
+
+برای اجرای روزمره، `docker compose up -d db` کافی است تا PostgreSQL محلی با volume موجود بالا بیاید؛ image بات را rebuild نمی‌کند. سپس `.venv` را فعال کن، اگر revision جدیدی داری `alembic upgrade head` را فقط با `DATABASE_URL` متصل به دیتابیس محلی اجرا کن، و از ریشهٔ پروژه `PYTHONPATH=src python dev_run.py` را بزن. اجرای migration توسط launcher خصوصی تأیید نشده؛ فایل را باز نکن. از bot token جداگانهٔ تست استفاده کن.
 
 Before the last three commands, configure only local/test values in the local `.env` and ensure `DATABASE_URL` targets the disposable/local Compose database. Never use the production bot token locally. Run `alembic upgrade head` only against that local database. Do not inspect, commit, import, rewrite, or delete the ignored `dev_run.py`.
 
@@ -39,3 +41,5 @@ Committed `src/BOOKzMA/__main__.py` starts Uvicorn, and no package-level `main()
 The expected boundary, based on the owner's setup description, is that `dev_run.py` only loads local environment values, configures the aiogram proxy from an environment variable, and starts the same application implementation; it must not contain a bot token or duplicate business logic. This is an intended contract, not a verified description of the private file. The committed package currently exposes Uvicorn startup through `__main__.py` and has no package-level `main()` function, so how the local launcher invokes the shared implementation remains an owner-confirmed open point.
 
 Keep the launcher outside Git. If the owner later requests a public example, propose a separate script with placeholders and obtain approval first. Never put real tokens or proxy credentials in a tracked example.
+
+برای روال اجباری branch، تست، PR، tag و deploy هر feature، [docs/WORKFLOW.md](WORKFLOW.md) را ببین.

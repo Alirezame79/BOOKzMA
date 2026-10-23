@@ -1,0 +1,100 @@
+import re
+from html import escape
+
+from aiogram import F, Router
+from aiogram.filters import Command
+from aiogram.types import CallbackQuery, Message
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from BOOKzMA import keyboards, texts
+from BOOKzMA.config import Settings
+from BOOKzMA.handlers.common import show
+from BOOKzMA.repositories import readings, streak_freezes, users
+from BOOKzMA.services.streak import compute_streak, longest_streak
+from BOOKzMA.utils import local_today
+
+router = Router()
+LEADERBOARD_LIMIT = 10
+
+
+async def render_profile(event: Message | CallbackQuery, session: AsyncSession) -> None:
+    tg = event.from_user if isinstance(event, Message) else event.from_user
+    user = await users.get_or_create(session, tg.id, tg.username, tg.full_name)
+    await session.commit()
+    days = await readings.get_days(session, user.id)
+    frozen_days = await streak_freezes.used_days(session, user.id)
+    await show(
+        event,
+        texts.profile(
+            compute_streak(days, local_today(user.timezone), frozen_days),
+            longest_streak(days, frozen_days),
+            await streak_freezes.balance(session, user.id),
+            user.leaderboard_opt_out,
+        ),
+        keyboards.profile_kb(user.leaderboard_opt_out),
+    )
+
+
+@router.message(Command("profile"))
+@router.message(F.text == "👤 پروفایل")
+async def on_profile(message: Message, session: AsyncSession) -> None:
+    await render_profile(message, session)
+
+
+@router.callback_query(F.data == "leaderboard:toggle")
+async def on_leaderboard_toggle(callback: CallbackQuery, session: AsyncSession) -> None:
+    user = await users.get_or_create(
+        session,
+        callback.from_user.id,
+        callback.from_user.username,
+        callback.from_user.full_name,
+    )
+    opt_out = not user.leaderboard_opt_out
+    await users.set_leaderboard_opt_out(session, user.id, opt_out)
+    await session.commit()
+    await callback.answer("از لیدربورد خارج شدی" if opt_out else "در لیدربورد حضور داری")
+    await render_profile(callback, session)
+
+
+@router.callback_query(F.data == "leaderboard")
+async def on_leaderboard(callback: CallbackQuery, session: AsyncSession) -> None:
+    rows = await users.leaderboard_rows(session)
+    scores = []
+    for _user_id, display_name, timezone_name, days, frozen_days in rows:
+        current = compute_streak(days, local_today(timezone_name), frozen_days)
+        if current:
+            scores.append((current, (display_name or "کتاب‌خوان").replace("\n", " ")))
+    scores.sort(key=lambda row: (-row[0], row[1]))
+    if not scores:
+        text = "🏅 <b>لیدربورد استریک</b>\n\nهنوز استریکی برای نمایش نیست."
+    else:
+        lines = ["🏅 <b>لیدربورد استریک</b>"]
+        for rank, (streak, display_name) in enumerate(scores[:LEADERBOARD_LIMIT], 1):
+            lines.append(f"{rank}. {escape(display_name)} · {streak} روز")
+        text = "\n".join(lines)
+    current_user = await users.get_or_create(
+        session,
+        callback.from_user.id,
+        callback.from_user.username,
+        callback.from_user.full_name,
+    )
+    await callback.answer()
+    if isinstance(callback.message, Message):
+        await callback.message.edit_text(
+            text, reply_markup=keyboards.profile_kb(current_user.leaderboard_opt_out)
+        )
+
+
+@router.message(Command("support"))
+@router.message(F.text == "💚 حمایت از پروژه")
+async def on_support(message: Message, settings: Settings) -> None:
+    support_username = settings.support_telegram_username.strip().removeprefix("@")
+    support_url = f"https://t.me/{support_username}" if re.fullmatch(
+        r"[A-Za-z0-9_]{5,32}", support_username
+    ) else ""
+    github_url = settings.github_url.strip()
+    if not re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/?", github_url):
+        github_url = ""
+    await message.answer(
+        texts.support(), reply_markup=keyboards.support_kb(github_url, support_url)
+    )

@@ -30,19 +30,19 @@ Each entry records current intent, not a claim that future work is implemented.
 
 **Revisit when:** The owner explicitly requests a tracked example or changes local setup.
 
-## D-03 — Streak Is Computed, Not Stored
+## D-03 — Streak Is Derived From Reads and Freeze Events
 
 **Status:** Implemented.
 
-**Context:** `ReadingLog` stores one row per user and local calendar date; `services/streak.py` derives current and longest streaks.
+**Context:** `ReadingLog` stores one row per user and local calendar date; `StreakFreeze` stores separate earned/used events. `services/streak.py` derives current and longest streaks from both.
 
-**Decision:** Keep streak values derived from reading dates unless a reviewed spec establishes a different model.
+**Decision:** Keep streak counters derived rather than mutable. A used freeze date participates in streak continuity but never counts as a reading day or freeze-earning progress.
 
 **Why:** The date log is the source of truth and uniqueness makes same-day recording idempotent.
 
 **Alternatives:** Store a mutable streak counter (adds consistency and concurrency risks).
 
-**Revisit when:** A product requirement needs new target-day, rest-day, or freeze semantics.
+**Revisit when:** A product requirement needs target-day/rest-day semantics or changes the approved freeze cap/reward/use rule.
 
 ## D-04 — Long Polling, Single Application Instance
 
@@ -58,12 +58,35 @@ Each entry records current intent, not a claim that future work is implemented.
 
 **Revisit when:** Measured load or availability requirements require multiple instances.
 
+## D-05 — Telegram Admin Allowlist
+
+**Status:** Implemented.
+
+**Decision:** Admin Telegram IDs come from `ADMIN_TELEGRAM_IDS`; every privileged handler checks the allowlist server-side. Admins bypass the required-channel gate. Adding another admin requires an environment update and restart.
+
+## D-06 — Earned, Bounded Streak Freeze
+
+**Status:** Implemented.
+
+**Decision:** Users start with zero freezes, earn one after seven consecutive real reading days, and hold at most two. A freeze is spent automatically only when reading resumes after exactly one missed day and the previous day was a real reading day. Freeze days preserve continuity but are not readings and cannot qualify for another reward.
+
+## D-07 — Durable Single-Process Broadcast
+
+**Status:** Implemented for text campaigns.
+
+**Decision:** Admins preview and confirm text-only campaigns. The DB stores campaign and recipient states; a single worker sends at 10/s, handles bounded retry and Telegram `RetryAfter`, and resumes inflight deliveries after restart. Since Telegram send and DB commit cannot be atomic, a crash in between may duplicate one message. Only one active campaign is allowed in the current single-process deployment.
+
+## D-08 — Analytics Observation Window
+
+**Status:** Implemented.
+
+**Decision:** Record first `/start` and UTC daily interaction from deployment onward. Daily active counts use successful bot updates; reading activity is reported separately. Do not infer historical starts or retention from `users.created_at`.
+
 ## Open Decisions (Owner Only)
 
-- Exact streak rules for weekly targets, rest days, and Freeze/Shield.
-- Definition of an active user for analytics.
+- Exact rules for weekly reading targets and rest days.
 - Book-search sources and copyright/licensing constraints.
 - Reward model and anti-abuse rules.
-- Simple support contact versus an in-bot ticket system.
+- Whether to add an in-bot ticket system beyond the configured support contact.
 - Backup retention period, location, encryption, and off-site copy.
-- Whether the Telegram command menu should also use `MenuButtonCommands`, a reply keyboard, or both. `set_my_commands` already exists.
+- Whether to add a `MenuButton` beyond scoped commands and the persistent reply keyboard.

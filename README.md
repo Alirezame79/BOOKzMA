@@ -36,9 +36,9 @@ Endpointهای نسخهٔ اول API:
 
 ## داده و migration
 
-در شروع سرویس، migrationهای Alembic به‌صورت خودکار اجرا می‌شوند. migration نسخهٔ `0002` فقط وضعیت تلاش مجدد یادآورها را اضافه می‌کند و اطلاعات قبلی را حذف نمی‌کند.
+در شروع سرویس، migrationهای Alembic به‌صورت خودکار اجرا می‌شوند. پیش از deploy نسخهٔ جدید از دیتابیس backup بگیر؛ migrationها را روی دیتابیس production جداگانه و دستی اجرا نکن.
 
 ## توسعه با ابزارهای هوش مصنوعی
 
-پیش از هر تغییر، [AGENTS.md](AGENTS.md) و سندهای مرتبط در `docs/` را بخوان. تفاوت محیط محلی و Docker را در [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md) ببین؛ فایل محلی `dev_run.py` را به Git اضافه نکن.
+پیش از هر تغییر، [AGENTS.md](AGENTS.md) و سندهای مرتبط در `docs/` را بخوان. برای branch، تست محلی، PR، tag و deploy از [docs/WORKFLOW.md](docs/WORKFLOW.md) پیروی کن. تفاوت محیط محلی و Docker در [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md) است؛ فایل محلی `dev_run.py` را به GitHub اضافه نکن.
 docker compose up -d --build

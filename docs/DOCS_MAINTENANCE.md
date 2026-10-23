@@ -16,3 +16,14 @@ Update documentation in the same change as the behavior. Each fact should have o
 | Spec process or acceptance criteria | `docs/specs/TEMPLATE.md` |
 
 Keep `AGENTS.md` under roughly 100 lines. When adding a rule, consolidate or remove duplication. Tool-specific files point to `AGENTS.md`; they are not copies. Remove or revise docs when the corresponding behavior is removed. Before a release, or monthly, run the P-12 documentation audit in `docs/vibe/PROMPTS.md`.
+
+## Feature Completeness Review
+
+For every feature, review the whole product surface rather than only the handler that implements it:
+
+- User entry points: menu, commands, callbacks, API, profile, weekly summary, reminders, and relevant background jobs.
+- Admin surface: controls plus every KPI/event/filter/report affected by the new behavior. Add admin analytics in the same feature when the behavior is measurable; otherwise state why it does not apply.
+- Data lifecycle: schema/migration, old-user defaults, privacy/consent, errors/retries, idempotency, and account deletion.
+- Delivery: tests, environment/configuration, Docker/local launcher compatibility, current docs, ROADMAP, and release/server instructions.
+
+The feature spec should list applicable surfaces and acceptance tests; a surface may be excluded only with a brief reason.

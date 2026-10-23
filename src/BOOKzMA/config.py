@@ -13,3 +13,20 @@ class Settings(DatabaseSettings):
     bot_token: SecretStr
     log_level: str = "INFO"
     web_origins: str = ""
+    admin_telegram_ids: str = ""
+    github_url: str = ""
+    support_telegram_username: str = ""
+
+    @property
+    def admin_ids(self) -> frozenset[int]:
+        ids: set[int] = set()
+        for value in self.admin_telegram_ids.split(","):
+            value = value.strip()
+            if not value:
+                continue
+            if not value.isascii() or not value.isdecimal() or len(value) > 20:
+                raise ValueError(
+                    "ADMIN_TELEGRAM_IDS must contain comma-separated numeric Telegram IDs"
+                )
+            ids.add(int(value))
+        return frozenset(ids)
