@@ -14,8 +14,9 @@ This repository contains a Persian Telegram reading bot and a FastAPI HTTP API. 
 ## Data and State
 
 - SQLAlchemy async models persist users, local reading dates, and reminders in PostgreSQL. Exact columns, constraints, and externally visible limits are listed in [BOT_GUIDE.md](BOT_GUIDE.md).
-- Alembic revisions `0001`–`0005` add freeze events, daily activity/profile fields, and durable broadcast state. Do not edit an applied revision; add a new migration for schema changes.
+- Alembic revisions `0001`–`0006` add freeze events, daily activity/profile fields, durable broadcast state, and the account-deletion tombstone table. Do not edit an applied revision; add a new migration for schema changes.
 - Freeze events remain separate from reading logs. Analytics read UTC activity and reading data; broadcast campaigns use per-recipient durable delivery records.
+- Account deletion removes the `users` row (cascading to all related tables) and records a tombstone in `deleted_accounts`. The bot membership middleware and the API `_load_user` helper check that tombstone before any user upsert, so deleted accounts are never silently re-registered; the `account_restore` callback clears the tombstone for explicit re-registration.
 - Conversation state and membership cache are process-local; exact bot state and cache behavior are documented in [BOT_GUIDE.md](BOT_GUIDE.md).
 
 ## Operational Limits

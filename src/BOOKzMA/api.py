@@ -169,6 +169,8 @@ async def require_identity(
 
 
 async def _load_user(session: AsyncSession, identity: Identity):
+    if await users.is_deleted(session, identity.id):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account deleted")
     user = await users.get_or_create(session, identity.id, identity.username)
     await session.commit()
     return user
@@ -343,6 +345,14 @@ def create_app(
             if item.remind_at == payload.time
         )
         return ReminderResponse(id=record.id, time=record.remind_at)
+
+    @app.delete("/api/v1/me", status_code=204, tags=["account"])
+    async def delete_me(
+        identity: Identity = Depends(require_identity),
+        session: AsyncSession = Depends(get_session),
+    ) -> None:
+        await users.delete_account(session, identity.id)
+        await session.commit()
 
     @app.delete("/api/v1/me/reminders/{reminder_id}", status_code=204, tags=["reminders"])
     async def delete_reminder(

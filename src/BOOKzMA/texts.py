@@ -16,6 +16,36 @@ REMINDER_DELETED = "حذف شد 🗑"
 BAD_TIME = "فرمت ساعت درست نیست 🤔 مثلاً <code>21:30</code> بفرست."
 ALREADY_READ = "امروز رو قبلاً ثبت کردی ✅"
 
+ACCOUNT_DELETE_WARN = (
+    "🗑 <b>حذف حساب</b>\n\n"
+    "با حذف حساب، همه‌چیز برای همیشه پاک می‌شه:\n"
+    "• استریک و رکوردت\n"
+    "• فریزها و روزهای مطالعه\n"
+    "• یادآورها و حضورت در لیدربورد\n\n"
+    "این کار برگشت‌پذیر نیست. فقط این نکته رو بدون که اطلاعات ممکنه تا وقتی بکاپ‌های قدیمی "
+    "پاک بشن، توی همون بکاپ‌ها بمونن.\n\n"
+    "مطمئنی ادامه بدی؟"
+)
+ACCOUNT_DELETE_WHY = "قبل از حذف، بگو چرا می‌خوای بری؟ راستش برای بهتر شدن ربات بهش نیاز داریم 🌱"
+ACCOUNT_DELETE_TYPE = (
+    "قراره همه‌چیز پاک بشه. اگه هنوز مطمئنی، برای تأیید کلمهٔ <code>حذف</code> رو بنویس و بفرست."
+)
+ACCOUNT_DELETE_BAD_WORD = (
+    "کلمهٔ تأیید درست نیست. فقط کافیه <code>حذف</code> رو بنویسی، یا با دکمهٔ پایین منصرف شو."
+)
+ACCOUNT_DELETE_FINAL = (
+    "آخرین قدم! با زدن دکمهٔ زیر، حسابت و تمام داده‌هات بدون راه برگشت پاک می‌شه."
+)
+ACCOUNT_DELETED_DONE = (
+    "حسابت همراه با همهٔ داده‌هاش پاک شد. 🌙\n"
+    "امیدواریم دوباره ببینیمت؛ هر وقت خواستی برگرد."
+)
+ACCOUNT_DELETE_CANCELLED = "باشه، حذف لغو شد. خوشحالیم که هنوز اینجایی 🙂"
+# پیام خنثی برای کاربر سنگ‌قبری؛ نباید به وجود حساب قبلی اشاره کند
+ACCOUNT_DELETED_NOTICE = "برای شروع، دکمهٔ زیر رو بزن 👋"
+ACCOUNT_RESTORED = "شروع شد! 📚"
+INVALID_ACTION = "این دکمه دیگه معتبر نیست. دوباره امتحان کن 🙏"
+
 
 def home(streak: int, best: int, strip: str, read_today: bool, freeze_balance: int) -> str:
     if streak:
@@ -144,7 +174,9 @@ def admin_dashboard(stats: dict[str, int], series: list[tuple[object, int]]) -> 
         f"بیشترین جاری/رکورد: {fa(stats['max_current_streak'])} / "
         f"{fa(stats['max_record_streak'])} روز\n"
         f"⏰ یادآورها: {fa(stats['reminders'])}\n"
-        f"🛡️ فریزهای مصرف‌شده: {fa(stats['freezes_used'])}\n\n"
+        f"🛡️ فریزهای مصرف‌شده: {fa(stats['freezes_used'])}\n"
+        f"🗑 حساب حذف‌شده: {fa(stats['accounts_deleted'])} · ۷ روز اخیر: "
+        f"{fa(stats['deletions_7d'])}\n\n"
         "<b>فعالیت ۷ روز اخیر</b>\n" + "\n".join(chart)
     )
 

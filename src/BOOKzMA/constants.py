@@ -23,3 +23,12 @@ TIMEZONES = [
     ("🇺🇸 نیویورک", "America/New_York"),
 ]
 TZ_LABELS = {name: label for label, name in TIMEZONES}
+
+# گزینه‌های سؤال «چرا حساب را حذف می‌کنی؟»؛ کد در deleted_accounts.reason ذخیره می‌شود
+DELETE_REASONS = (
+    ("unused", "دیگه استفاده نمی‌کنم"),
+    ("reminders", "یادآورها اذیت می‌کنن"),
+    ("privacy", "نگرانی دربارهٔ حریم خصوصی"),
+    ("other", "دلیل دیگه"),
+)
+DELETE_CONFIRM_WORD = "حذف"

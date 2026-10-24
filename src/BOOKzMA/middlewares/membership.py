@@ -74,6 +74,21 @@ class MembershipMiddleware(BaseMiddleware):
         user = data.get("event_from_user")
         if user is None:
             return await handler(event, data)
+        if isinstance(event, CallbackQuery) and event.data == "account_restore":
+            return await handler(event, data)
+        session = data.get("session")
+        if isinstance(session, AsyncSession) and await users.is_deleted(session, user.id):
+            if isinstance(event, CallbackQuery):
+                await event.answer()
+                if isinstance(event.message, Message):
+                    await event.message.answer(
+                        texts.ACCOUNT_DELETED_NOTICE, reply_markup=keyboards.restore_kb()
+                    )
+            elif isinstance(event, Message):
+                await event.answer(
+                    texts.ACCOUNT_DELETED_NOTICE, reply_markup=keyboards.restore_kb()
+                )
+            return None
         if isinstance(event, Message) and event.text:
             command = event.text.split(maxsplit=1)[0].split("@", maxsplit=1)[0]
             if command == "/start":

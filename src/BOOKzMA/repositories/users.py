@@ -1,10 +1,10 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from BOOKzMA.db.models import ReadingLog, StreakFreeze, User
+from BOOKzMA.db.models import DeletedAccount, ReadingLog, StreakFreeze, User
 
 
 async def get_or_create(
@@ -48,6 +48,52 @@ async def mark_broadcast_unavailable(session: AsyncSession, user_id: int) -> Non
     await session.execute(
         update(User).where(User.id == user_id).values(broadcast_unavailable=True)
     )
+
+
+async def delete_account(
+    session: AsyncSession, user_id: int, reason: str | None = None
+) -> bool:
+    """حذف کامل حساب: اول سنگ‌قبر، بعد خود کاربر (CASCADE همهٔ جداول وابسته). idempotent."""
+    await session.execute(
+        insert(DeletedAccount)
+        .values(user_id=user_id, reason=reason)
+        .on_conflict_do_nothing(index_elements=["user_id"])
+    )
+    result = await session.execute(delete(User).where(User.id == user_id))
+    return result.rowcount == 1
+
+
+async def restore_account(session: AsyncSession, user_id: int) -> bool:
+    """پاک‌کردن سنگ‌قبر برای ثبت‌نام دوبارهٔ صریح کاربر."""
+    result = await session.execute(
+        delete(DeletedAccount).where(DeletedAccount.user_id == user_id)
+    )
+    return result.rowcount == 1
+
+
+async def is_deleted(session: AsyncSession, user_id: int) -> bool:
+    return (
+        await session.scalar(
+            select(DeletedAccount.user_id).where(DeletedAccount.user_id == user_id)
+        )
+        is not None
+    )
+
+
+async def deletion_counts(session: AsyncSession, since: datetime | None = None) -> tuple[int, int]:
+    """(کل حساب‌های حذف‌شده، حذف‌های بعد از since)"""
+    total = await session.scalar(select(func.count()).select_from(DeletedAccount)) or 0
+    if since is None:
+        return total, 0
+    recent = (
+        await session.scalar(
+            select(func.count())
+            .select_from(DeletedAccount)
+            .where(DeletedAccount.deleted_at >= since)
+        )
+        or 0
+    )
+    return total, recent
 
 
 async def mark_started(session: AsyncSession, user_id: int) -> bool:
