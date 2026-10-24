@@ -108,6 +108,18 @@ class BroadcastDelivery(Base):
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class DeletedAccount(Base):
+    """سنگ‌قبر حساب حذف‌شده؛ بدون FK تا از حذف ردیف users جان سالم ببرد."""
+
+    __tablename__ = "deleted_accounts"
+
+    user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    deleted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    reason: Mapped[str | None] = mapped_column(String(32))
+
+
 class Reminder(Base):
     __tablename__ = "reminders"
     __table_args__ = (UniqueConstraint("user_id", "remind_at", name="uq_reminder_user_time"),)

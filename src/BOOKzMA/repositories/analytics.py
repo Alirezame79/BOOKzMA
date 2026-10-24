@@ -4,6 +4,7 @@ from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from BOOKzMA.db.models import ActivityDay, ReadingLog, Reminder, StreakFreeze, User
+from BOOKzMA.repositories import users
 from BOOKzMA.services.streak import compute_streak, longest_streak
 from BOOKzMA.utils import local_today
 
@@ -46,6 +47,11 @@ async def dashboard(session: AsyncSession, today: date) -> dict[str, int]:
     counts["inactive_30d"] = await _inactive_starters(session, thirty_days_ago)
     counts.update(await retention_rates(session, today))
     counts.update(await streak_stats(session))
+    deleted_total, deleted_recent = await users.deletion_counts(
+        session, now - timedelta(days=7)
+    )
+    counts["accounts_deleted"] = deleted_total
+    counts["deletions_7d"] = deleted_recent
     return counts
 
 

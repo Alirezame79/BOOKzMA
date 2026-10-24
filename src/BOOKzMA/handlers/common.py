@@ -10,7 +10,9 @@ from BOOKzMA.services.streak import compute_streak, longest_streak, week_strip
 from BOOKzMA.utils import local_today
 
 
-async def show(event: Message | CallbackQuery, text: str, kb: InlineKeyboardMarkup) -> None:
+async def show(
+    event: Message | CallbackQuery, text: str, kb: InlineKeyboardMarkup | None
+) -> None:
     """دکمه‌ها پیام قبلی رو ویرایش می‌کنن، پیام جدید رو می‌فرستیم"""
     if isinstance(event, Message):
         await event.answer(text, reply_markup=kb)

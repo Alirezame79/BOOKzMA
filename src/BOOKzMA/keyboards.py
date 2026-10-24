@@ -5,7 +5,7 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
 )
 
-from BOOKzMA.constants import MAX_REMINDERS, PRESET_TIMES, TIMEZONES
+from BOOKzMA.constants import DELETE_REASONS, MAX_REMINDERS, PRESET_TIMES, TIMEZONES
 
 
 def _btn(text: str, data: str) -> InlineKeyboardButton:
@@ -53,9 +53,45 @@ def profile_kb(opt_out: bool) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [_btn(toggle_text, "leaderboard:toggle")],
             [_btn("🏅 لیدربورد استریک", "leaderboard")],
+            [_btn("🗑 حذف حساب", "account_del:start")],
             [_btn("🏠 منوی اصلی", "home")],
         ]
     )
+
+
+def account_delete_warn_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_btn("ادامه می‌دم", "account_del:why")],
+            [_btn("🔙 انصراف", "account_del:cancel")],
+        ]
+    )
+
+
+def account_delete_reasons_kb() -> InlineKeyboardMarkup:
+    buttons = [
+        _btn(label, f"account_del:reason:{i}") for i, (_code, label) in enumerate(DELETE_REASONS)
+    ]
+    rows = _chunk(buttons, 2)
+    rows.append([_btn("🔙 انصراف", "account_del:cancel")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def account_delete_type_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[_btn("🔙 انصراف", "account_del:cancel")]])
+
+
+def account_delete_final_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_btn("بله، همه‌چیز پاک شود", "account_del:go")],
+            [_btn("🔙 انصراف", "account_del:cancel")],
+        ]
+    )
+
+
+def restore_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[_btn("شروع", "account_restore")]])
 
 
 def support_kb(github_url: str, support_url: str) -> InlineKeyboardMarkup:

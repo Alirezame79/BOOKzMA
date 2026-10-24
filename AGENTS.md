@@ -22,6 +22,7 @@ Never assume: open the actual file and verify the behavior before documenting or
 ## Branch and Release Workflow
 
 - Before every task, inspect `git branch --show-current` and `git status --short`. Work on a new task branch based on up-to-date `main`; never edit `main` directly. Follow [docs/WORKFLOW.md](docs/WORKFLOW.md).
+- **Agent sessions (mandatory):** every agent, at the very start of a session/task, must create its own separate branch from up-to-date `main` and do all of its work on that branch. Never work on, edit, or commit to the main branch — no exceptions.
 - Preserve dirty user changes. Do not discard, stash, or switch away from unclear changes; ask before mixing unrelated work. If the current non-main branch already contains the same in-progress task, continue it rather than moving its changes.
 - Do not commit, push, merge, or tag unless explicitly asked. At the end of every feature, provide branch, test/local-run, Docker/database, PR/merge/tag, and post-merge server deployment guidance.
 - Never recommend adding the ignored private `dev_run.py` to GitHub. Keep it and `.env` local; only propose a separate placeholder example after explicit approval.
@@ -64,4 +65,12 @@ Bot text should be natural, clear, modern Persian: neither stiff nor AI-sounding
 
 ## End-of-Task Report
 
-List changed files, checks actually run and their results, unverified areas, updated docs, and owner decisions still needed. Do not commit or push unless explicitly asked.
+At the end of **every** task, always give the owner a complete handoff — never end with the work alone:
+
+1. Exact commands to run the code locally (including any DB start, migration, and whether Docker rebuild is needed).
+2. How to test the change (checks actually run and their real results, plus what to verify manually).
+3. Once verified, exact commands to commit, push, and open a PR (with the real branch name), how to merge it, and how to delete the branch locally and remotely afterwards.
+4. Any post-merge/deployment steps (backup, migration, tag) that apply.
+5. List changed files, checks actually run and their results, unverified areas, updated docs, and owner decisions still needed.
+
+Do not commit or push unless explicitly asked.
