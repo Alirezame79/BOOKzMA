@@ -85,8 +85,13 @@ Each entry records current intent, not a claim that future work is implemented.
 ## Open Decisions (Owner Only)
 
 - Exact rules for weekly reading targets and rest days.
-- Book-search sources and copyright/licensing constraints.
-- Reward model and anti-abuse rules.
-- Whether to add an in-bot ticket system beyond the configured support contact.
-- Backup retention period, location, encryption, and off-site copy.
-- Whether to add a `MenuButton` beyond scoped commands and the persistent reply keyboard.
+- Calendar basis: Persian (Jalali) dates and Saturday-start weeks (S-06), and the day boundary for readers who log after midnight (S-10).
+- Definition of an "active user" for analytics and admin KPIs (A-05).
+- Book-search sources and copyright/licensing constraints, including which channel content may be indexed (B-01, B-02).
+- Social privacy defaults: what friends may see and whether visibility is opt-in (C-02, L-03).
+- Reward model, anti-abuse rules, and whether payments (for example Telegram Stars) will exist and for which digital goods, under a free-core principle (G-08, C-05, M-01, M-02).
+- Whether to add an in-bot ticket system beyond the configured support contact (P-01).
+- Backup retention period, location, encryption, and off-site copy (N-05, L-02).
+- Whether to add a `MenuButton` beyond scoped commands and the persistent reply keyboard, and the final combination of command menu and reply keyboard at `/start` (N-01, U-01).
+- Whether a web admin panel is built and up to which tier (W-01..W-03), tied to revisiting the FastAPI decision D-01.
+- Brand tone of voice: how casual versus formal (N-07).
