@@ -16,6 +16,8 @@ class Settings(DatabaseSettings):
     admin_telegram_ids: str = ""
     github_url: str = ""
     support_telegram_username: str = ""
+    backup_dir: str = "/backups"
+    backup_keep_local: int = 1
 
     @property
     def admin_ids(self) -> frozenset[int]:

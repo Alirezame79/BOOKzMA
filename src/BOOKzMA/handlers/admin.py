@@ -12,15 +12,22 @@ from BOOKzMA import keyboards, texts
 from BOOKzMA.config import Settings
 from BOOKzMA.handlers.common import show
 from BOOKzMA.repositories import analytics, broadcasts
+from BOOKzMA.services import backup as backup_service
+from BOOKzMA.services.backup import BackupError
 from BOOKzMA.utils import local_today
 
 router = Router()
 log = logging.getLogger(__name__)
 MAX_BROADCAST_LENGTH = 3500
+RESTORE_INDEX_RE = re.compile(r"admin:restore_(ask|ready):(\d{1,3})")
 
 
 class NewBroadcast(StatesGroup):
     waiting_for_text = State()
+
+
+class BackupRestore(StatesGroup):
+    waiting_for_confirm = State()
 
 
 def is_admin(user_id: int, settings: Settings) -> bool:
@@ -178,3 +185,140 @@ async def on_broadcast_cancel(
         return
     await session.commit()
     await callback.answer("ارسال لغو شد.")
+
+
+def _restore_index(callback_data: str, action: str) -> int | None:
+    match = re.fullmatch(rf"admin:restore_{action}:(\d{{1,3}})", callback_data or "")
+    if match is None:
+        return None
+    return int(match[1])
+
+
+def _backup_name(settings: Settings, index: int | None) -> str | None:
+    """نام فایل هرگز از ورودی آزاد گرفته نمی‌شود؛ فقط از فهرست واقعی فایل‌ها با ایندکس."""
+    if index is None:
+        return None
+    infos = backup_service.list_backups(settings)
+    return infos[index].name if 0 <= index < len(infos) else None
+
+
+@router.callback_query(F.data == "admin:backup")
+async def on_backup_menu(
+    callback: CallbackQuery, state: FSMContext, settings: Settings
+) -> None:
+    if not _authorize(callback.from_user.id, settings, "backup_menu"):
+        await callback.answer("دسترسی نداری.", show_alert=True)
+        return
+    await state.clear()
+    await callback.answer()
+    text = (
+        texts.backup_status(backup_service.list_backups(settings))
+        + "\n\n"
+        + texts.admin_backup_hint()
+    )
+    await show(callback, text, keyboards.backup_kb())
+
+
+@router.callback_query(F.data == "admin:backup_now")
+async def on_backup_now(callback: CallbackQuery, settings: Settings) -> None:
+    if not _authorize(callback.from_user.id, settings, "backup_now"):
+        await callback.answer("دسترسی نداری.", show_alert=True)
+        return
+    await callback.answer(texts.BACKUP_RUNNING)
+    log.info("admin backup action=backup_now actor=%s", callback.from_user.id)
+    try:
+        info = await backup_service.run_backup(settings)
+    except BackupError:
+        log.exception("admin backup action=backup_now failed actor=%s", callback.from_user.id)
+        if isinstance(callback.message, Message):
+            await callback.message.answer(texts.BACKUP_FAILED)
+        return
+    if isinstance(callback.message, Message):
+        await callback.message.answer(texts.backup_done(info.name, info.size_bytes))
+
+
+@router.callback_query(F.data == "admin:backup_restore")
+async def on_backup_restore_list(
+    callback: CallbackQuery, state: FSMContext, settings: Settings
+) -> None:
+    if not _authorize(callback.from_user.id, settings, "backup_restore_list"):
+        await callback.answer("دسترسی نداری.", show_alert=True)
+        return
+    await state.clear()
+    infos = backup_service.list_backups(settings)
+    if not infos:
+        await callback.answer(texts.BACKUP_NONE, show_alert=True)
+        return
+    await callback.answer()
+    await show(
+        callback,
+        texts.backup_list(infos),
+        keyboards.backup_list_kb([info.name for info in infos]),
+    )
+
+
+@router.callback_query(F.data.startswith("admin:restore_ask:"))
+async def on_restore_ask(callback: CallbackQuery, settings: Settings) -> None:
+    if not _authorize(callback.from_user.id, settings, "restore_ask"):
+        await callback.answer("دسترسی نداری.", show_alert=True)
+        return
+    index = _restore_index(callback.data or "", "ask")
+    name = _backup_name(settings, index)
+    if name is None:
+        await callback.answer(texts.INVALID_ACTION, show_alert=True)
+        return
+    await callback.answer()
+    await show(callback, texts.restore_warn(name), keyboards.restore_warn_kb(index or 0))
+
+
+@router.callback_query(F.data.startswith("admin:restore_ready:"))
+async def on_restore_ready(
+    callback: CallbackQuery, state: FSMContext, settings: Settings
+) -> None:
+    if not _authorize(callback.from_user.id, settings, "restore_ready"):
+        await callback.answer("دسترسی نداری.", show_alert=True)
+        return
+    index = _restore_index(callback.data or "", "ready")
+    name = _backup_name(settings, index)
+    if name is None:
+        await callback.answer(texts.INVALID_ACTION, show_alert=True)
+        return
+    await state.set_state(BackupRestore.waiting_for_confirm)
+    await state.update_data(restore_file=name)
+    await callback.answer()
+    if isinstance(callback.message, Message):
+        await callback.message.answer(
+            texts.RESTORE_CONFIRM, reply_markup=keyboards.restore_confirm_kb()
+        )
+
+
+@router.message(BackupRestore.waiting_for_confirm, F.text)
+async def on_restore_confirm(
+    message: Message, state: FSMContext, settings: Settings
+) -> None:
+    if not message.from_user or not _authorize(
+        message.from_user.id, settings, "restore_confirm"
+    ):
+        await state.clear()
+        return
+    if (message.text or "").strip() != texts.RESTORE_WORD:
+        await message.answer(texts.RESTORE_BAD_WORD)
+        return
+    data = await state.get_data()
+    name = data.get("restore_file")
+    await state.clear()
+    if not isinstance(name, str):
+        await message.answer(texts.INVALID_ACTION)
+        return
+    log.info("admin backup action=restore actor=%s file=%s", message.from_user.id, name)
+    await message.answer(texts.RESTORE_RUNNING)
+    try:
+        await backup_service.run_restore(settings, name)
+    except BackupError:
+        log.exception(
+            "admin backup action=restore failed actor=%s file=%s", message.from_user.id, name
+        )
+        await message.answer(texts.RESTORE_FAILED)
+        return
+    log.info("admin backup action=restore done actor=%s file=%s", message.from_user.id, name)
+    await message.answer(texts.RESTORE_DONE)

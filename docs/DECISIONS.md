@@ -82,6 +82,12 @@ Each entry records current intent, not a claim that future work is implemented.
 
 **Decision:** Record first `/start` and UTC daily interaction from deployment onward. Daily active counts use successful bot updates; reading activity is reported separately. Do not infer historical starts or retention from `users.created_at`.
 
+## D-09 — Database Backup and Restore (N-05)
+
+**Status:** Implemented (2026-10-25).
+
+**Decision:** Daily logical backup with `pg_dump -Fc`. Host cron runs `scripts/backup.py` daily at 03:30; the admin panel can also take an on-demand backup and run a two-step-confirmed restore. Local retention keeps only the newest backup on the small server (`BACKUP_KEEP_LOCAL=1`); Google Drive (via host-side `rclone`) keeps 14 daily generations. Backups live in `BOOKZMA_BACKUP_DIR` outside the repository and are bind-mounted into the bot container at `/backups`. File encryption and other off-site mechanisms remain future work under L-02. Periodic restore rehearsal is an owner task; `scripts/restore.py` supports rehearsing against a temporary database.
+
 ## Open Decisions (Owner Only)
 
 - Exact rules for weekly reading targets and rest days.
@@ -91,7 +97,7 @@ Each entry records current intent, not a claim that future work is implemented.
 - Social privacy defaults: what friends may see and whether visibility is opt-in (C-02, L-03).
 - Reward model, anti-abuse rules, and whether payments (for example Telegram Stars) will exist and for which digital goods, under a free-core principle (G-08, C-05, M-01, M-02).
 - Whether to add an in-bot ticket system beyond the configured support contact (P-01).
-- Backup retention period, location, encryption, and off-site copy (N-05, L-02).
+- Backup file encryption and further off-site/retention policy beyond D-09 (L-02).
 - Whether to add a `MenuButton` beyond scoped commands and the persistent reply keyboard, and the final combination of command menu and reply keyboard at `/start` (N-01, U-01).
 - Whether a web admin panel is built and up to which tier (W-01..W-03), tied to revisiting the FastAPI decision D-01.
 - Brand tone of voice: how casual versus formal (N-07).
