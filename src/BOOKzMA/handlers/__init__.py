@@ -1,6 +1,16 @@
 from aiogram import Router
 
-from BOOKzMA.handlers import account, admin, profile, reminders, start, streak, timezone, weekly
+from BOOKzMA.handlers import (
+    account,
+    admin,
+    onboarding,
+    profile,
+    reminders,
+    start,
+    streak,
+    timezone,
+    weekly,
+)
 
 
 def get_router() -> Router:
@@ -8,6 +18,7 @@ def get_router() -> Router:
     router = Router()
     router.include_routers(
         start.router,
+        onboarding.router,
         admin.router,
         account.router,
         profile.router,

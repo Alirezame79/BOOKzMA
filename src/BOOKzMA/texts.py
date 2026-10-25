@@ -46,6 +46,19 @@ ACCOUNT_DELETED_NOTICE = "برای شروع، دکمهٔ زیر رو بزن 👋
 ACCOUNT_RESTORED = "شروع شد! 📚"
 INVALID_ACTION = "این دکمه دیگه معتبر نیست. دوباره امتحان کن 🙏"
 
+ONBOARDING_WELCOME = (
+    "سلام! 👋 خوش اومدی\n\n"
+    "اینجا جاییه که عادت کتاب‌خوندن رو باهم می‌سازیم: هر روز که بخونی ثبتش می‌کنیم، "
+    "استریک‌ت بالا می‌ره و یادآور هم یادت نمی‌ذاره.\n\n"
+    "برای شروع، اولین یادآور روزانه‌ات رو انتخاب کن:"
+)
+ONBOARDING_DONE = "یادآورت فعاله ⏰ حالا هر روز سر وقت بهت یادآوری می‌کنم."
+ONBOARDING_SKIPPED = "باشه! هر وقت خواستی از منوی «⏰ یادآورها» بذار 🙂"
+WELCOME_BACK = (
+    "چه خوب که برگشتی! 👋\n"
+    "هر چقدر هم غیبت شد، مهم نیست؛ از همین امروز دوباره شروع کنیم."
+)
+
 
 def home(streak: int, best: int, strip: str, read_today: bool, freeze_balance: int) -> str:
     if streak:
@@ -160,6 +173,7 @@ def admin_dashboard(stats: dict[str, int], series: list[tuple[object, int]]) -> 
         "📊 <b>گزارش بات (UTC)</b>\n\n"
         f"👤 کاربران ثبت‌شده: {fa(stats['users'])}\n"
         f"🚀 شروع‌کننده‌ها: {fa(stats['starters'])}\n"
+        f"🎓 آنبردینگ کامل‌شده: {fa(stats['onboarded'])}\n"
         f"🆕 شروع در ۷/۳۰ روز: {fa(stats['starts_7d'])} / {fa(stats['starts_30d'])}\n"
         f"🟢 فعال روزانه/هفتگی/ماهانه: "
         f"{fa(stats['dau'])} / {fa(stats['wau'])} / {fa(stats['mau'])}\n"

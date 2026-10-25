@@ -106,6 +106,17 @@ async def mark_started(session: AsyncSession, user_id: int) -> bool:
     return result.first() is not None
 
 
+async def mark_onboarded(session: AsyncSession, user_id: int) -> bool:
+    """True فقط بار اول؛ فلوی آنبردینگ ایدمپوتنت تمام می‌شود."""
+    result = await session.execute(
+        update(User)
+        .where(User.id == user_id, User.onboarded_at.is_(None))
+        .values(onboarded_at=datetime.now(timezone.utc))
+        .returning(User.id)
+    )
+    return result.first() is not None
+
+
 async def leaderboard_rows(
     session: AsyncSession,
 ) -> list[tuple[int, str | None, str, list, list]]:

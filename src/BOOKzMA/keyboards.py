@@ -168,3 +168,10 @@ def reminder_push_kb() -> InlineKeyboardMarkup:
 
 def weekly_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[_btn("🔙 برگشت", "home")]])
+
+
+def onboarding_time_kb() -> InlineKeyboardMarkup:
+    presets = [_btn(f"⏰ {t}", f"onb:{t.replace(':', '')}") for t in PRESET_TIMES]
+    rows = _chunk(presets, 2)
+    rows.append([_btn("فعلاً نه", "onb:skip")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)

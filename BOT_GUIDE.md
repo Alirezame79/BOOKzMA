@@ -6,10 +6,14 @@ This guide records behavior verified in `src/BOOKzMA/`, migrations, and configur
 
 `bot.py` registers `/start`, `/reminders`, `/timezone`, `/profile`, and `/support` for all users. Configured admins also receive `/admin` in their chat command scope. `/start` shows the persistent Persian reply keyboard; contextual flows continue to use inline keyboards. Admin entry points are checked against `ADMIN_TELEGRAM_IDS` in handlers, independently of menu visibility.
 
+`/start` branches by onboarding state (`users.onboarded_at`, U-01): a user who has not completed the intro flow gets a short welcome message with a first-reminder choice instead of the home screen, and the same flow starts after passing the channel gate via `check_join`. Existing users were backfilled with `onboarded_at` in migration `0007`, so only new accounts see the intro. A returning reader — someone with reading history whose last local reading day is more than seven days old (U-02) — receives a blame-free welcome-back line before the home screen; this fires only on `/start`.
+
 Callback payloads implemented in handlers/keyboards:
 
 | Payload | Behavior |
 | --- | --- |
+| `onb:<HHMM>` | Onboarding: add the chosen preset reminder and mark the intro complete (validated against `PRESET_TIMES`) |
+| `onb:skip` | Onboarding: skip the first reminder and mark the intro complete |
 | `home` | Clear FSM state and render home |
 | `check_join` | Recheck required channel membership |
 | `read` | Record today's reading idempotently |
@@ -34,7 +38,7 @@ Callback payloads implemented in handlers/keyboards:
 | `broadcast:status:<id>` | Show counts for an owned campaign |
 | `broadcast:cancel:<id>` | Cancel an owned campaign |
 
-FSM states are `handlers.reminders.AddTime.waiting`, `handlers.admin.NewBroadcast.waiting_for_text`, and `handlers.account.DeleteAccount.waiting_word`; FSM storage remains in-memory. Arbitrary reminder times are parsed as 24-hour `HH[:MM]` with Persian or Arabic digits accepted.
+FSM states are `handlers.reminders.AddTime.waiting`, `handlers.admin.NewBroadcast.waiting_for_text`, and `handlers.account.DeleteAccount.waiting_word`; FSM storage remains in-memory. The onboarding flow is stateless callback-driven and needs no FSM state. Arbitrary reminder times are parsed as 24-hour `HH[:MM]` with Persian or Arabic digits accepted.
 
 Account deletion (`N-04`) is a four-step wizard started from the profile: a warning screen, a deletion-reason choice, a typed confirmation word (`حذف`), and a final button. Deletion removes the `users` row (cascading to all related tables) and inserts a `deleted_accounts` tombstone in the same transaction. The membership middleware intercepts tombstoned users before handlers run — they get a neutral start prompt (no mention of a previous account) and no activity or start is recorded for them; the `account_restore` callback clears the tombstone. The API exposes the same behavior through `DELETE /api/v1/me`, and authenticated requests for tombstoned users return 401 until they re-register via the bot.
 
@@ -61,7 +65,7 @@ The existing FastAPI app is in `api.py`; the container runs it through Uvicorn. 
 
 | Table | Current shape and invariant |
 | --- | --- |
-| `users` | Telegram ID primary key; optional display name/username; timezone defaults to `Asia/Tehran`; first-start time; leaderboard opt-out and permanent broadcast-unavailable flags |
+| `users` | Telegram ID primary key; optional display name/username; timezone defaults to `Asia/Tehran`; first-start and onboarding-completion timestamps; leaderboard opt-out and permanent broadcast-unavailable flags |
 | `reading_logs` | `(user_id, day)` composite primary key; user foreign key cascades on delete |
 | `streak_freezes` | Earned/used freeze events, separate from reading logs; unique `(user_id, kind, day)` |
 | `activity_days` | One row per user and UTC date; cascades with user deletion |
@@ -72,7 +76,7 @@ The existing FastAPI app is in `api.py`; the container runs it through Uvicorn. 
 
 Streak is computed from read dates plus explicitly used freeze dates; freeze days are not reported as reading. Users start with zero freezes, earn one per seven consecutive real reading days, and hold at most two. One missed day is automatically protected when reading resumes the next day; freezes cannot cover consecutive missed days. Weekly summaries cover today and the preceding six local dates. Reminders are capped at five per user; presets are `08:00`, `13:00`, `18:00`, `21:00`, and `23:00`. The scheduler scans every 30 seconds, skips sends over ten minutes late, and caps retries at three per reminder per local day.
 
-Admin analytics count starts recorded from the new deployment onward, UTC daily interactions after successful membership checks, and reading logs separately. D1/D7/D30 return rates use only users with enough post-deployment observation time. The displayed seven-day chart is text-based. The dashboard also reports total deleted accounts and deletions in the last seven UTC days from the tombstone table. Broadcast campaigns are text-only, confirmed by an admin, serialized to one active campaign in the single application process, and sent at 5 messages/second with bounded retries and persisted `RetryAfter` deadlines. Delivery state is persisted and inflight deliveries are retried after restart; a crash after Telegram accepts a message but before the DB update can cause a duplicate. Deleting an account mid-campaign or mid-reminder-sweep is safe: updates to deleted rows are no-ops and counts reflect remaining recipients.
+Admin analytics count starts recorded from the new deployment onward, UTC daily interactions after successful membership checks, and reading logs separately. The dashboard also reports onboarding completions (`users.onboarded_at`), meaningful from the migration `0007` deploy date onward because existing users were backfilled. D1/D7/D30 return rates use only users with enough post-deployment observation time. The displayed seven-day chart is text-based. The dashboard also reports total deleted accounts and deletions in the last seven UTC days from the tombstone table. Broadcast campaigns are text-only, confirmed by an admin, serialized to one active campaign in the single application process, and sent at 5 messages/second with bounded retries and persisted `RetryAfter` deadlines. Delivery state is persisted and inflight deliveries are retried after restart; a crash after Telegram accepts a message but before the DB update can cause a duplicate. Deleting an account mid-campaign or mid-reminder-sweep is safe: updates to deleted rows are no-ops and counts reflect remaining recipients.
 
 Membership checks run for bot messages and callbacks, except the `check_join` callback itself and the `account_restore` callback. Required channels come from `REQUIRED_CHANNELS`, defaulting to an empty list if unset. Only successful checks are cached, per process, for 300 seconds. A membership-check Telegram error is treated as not joined. Every update also performs one indexed tombstone lookup (`deleted_accounts`) before handlers run, so deleted users never reach `get_or_create`.
 

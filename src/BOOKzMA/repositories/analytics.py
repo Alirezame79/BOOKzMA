@@ -19,6 +19,10 @@ async def dashboard(session: AsyncSession, today: date) -> dict[str, int]:
             select(func.count()).select_from(User).where(User.started_at.is_not(None))
         )
         or 0,
+        "onboarded": await session.scalar(
+            select(func.count()).select_from(User).where(User.onboarded_at.is_not(None))
+        )
+        or 0,
         "starts_7d": await session.scalar(
             select(func.count()).select_from(User).where(
                 User.started_at >= now - timedelta(days=7)
