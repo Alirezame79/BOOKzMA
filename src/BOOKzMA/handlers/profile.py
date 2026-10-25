@@ -10,7 +10,7 @@ from BOOKzMA import keyboards, texts
 from BOOKzMA.config import Settings
 from BOOKzMA.handlers.common import show
 from BOOKzMA.repositories import readings, streak_freezes, users
-from BOOKzMA.services.streak import compute_streak, longest_streak
+from BOOKzMA.services.streak import displayed_streak, longest_streak
 from BOOKzMA.utils import local_today
 
 router = Router()
@@ -26,7 +26,13 @@ async def render_profile(event: Message | CallbackQuery, session: AsyncSession) 
     await show(
         event,
         texts.profile(
-            compute_streak(days, local_today(user.timezone), frozen_days),
+            displayed_streak(
+                days,
+                local_today(user.timezone),
+                frozen_days,
+                user.comeback_bonus_days,
+                user.comeback_base_day,
+            ),
             longest_streak(days, frozen_days),
             await streak_freezes.balance(session, user.id),
             user.leaderboard_opt_out,
@@ -60,8 +66,10 @@ async def on_leaderboard_toggle(callback: CallbackQuery, session: AsyncSession) 
 async def on_leaderboard(callback: CallbackQuery, session: AsyncSession) -> None:
     rows = await users.leaderboard_rows(session)
     scores = []
-    for _user_id, display_name, timezone_name, days, frozen_days in rows:
-        current = compute_streak(days, local_today(timezone_name), frozen_days)
+    for _user_id, display_name, timezone_name, bonus_days, bonus_base, days, frozen_days in rows:
+        current = displayed_streak(
+            days, local_today(timezone_name), frozen_days, bonus_days, bonus_base
+        )
         if current:
             scores.append((current, (display_name or "کتاب‌خوان").replace("\n", " ")))
     scores.sort(key=lambda row: (-row[0], row[1]))

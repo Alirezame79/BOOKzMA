@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from BOOKzMA import keyboards, texts
 from BOOKzMA.repositories import readings, users
 from BOOKzMA.repositories import streak_freezes
-from BOOKzMA.services.streak import compute_streak, longest_streak, week_strip
+from BOOKzMA.services.streak import displayed_streak, longest_streak, week_strip
 from BOOKzMA.utils import local_today
 
 
@@ -34,7 +34,9 @@ async def render_home(event: Message | CallbackQuery, session: AsyncSession, tg:
     freeze_balance = await streak_freezes.balance(session, user.id)
     read_today = today in days
     text = texts.home(
-        compute_streak(days, today, frozen_days),
+        displayed_streak(
+            days, today, frozen_days, user.comeback_bonus_days, user.comeback_base_day
+        ),
         longest_streak(days, frozen_days),
         week_strip(days, today, frozen_days),
         read_today,

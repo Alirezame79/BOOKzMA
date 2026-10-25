@@ -58,6 +58,18 @@ WELCOME_BACK = (
     "چه خوب که برگشتی! 👋\n"
     "هر چقدر هم غیبت شد، مهم نیست؛ از همین امروز دوباره شروع کنیم."
 )
+COMEBACK_BROKEN = (
+    "😌 استریک {days} روزه‌ات تموم شد؛ اتفاق می‌افده. ولی از دست نرفته:\n"
+    "۳ روز پشت‌سرهم بخون تا نصفش پس بگیری 💪"
+)
+COMEBACK_PROGRESS = "🔁 روز {done} از ۳ برای پس‌گرفتن استریک. ادامه بده!"
+COMEBACK_RESTORED = (
+    "🎉 آفرین! {added} روز به استریکت برگشت؛ الان {total} روزه‌ای."
+)
+RISK_ALERT = (
+    "⚠️ <b>استریکت در خطره!</b>\n"
+    "امروز هنوز نخوندی. همین یه مطالعهٔ کوچیک هم روزت رو نجات می‌ده."
+)
 
 
 def home(streak: int, best: int, strip: str, read_today: bool, freeze_balance: int) -> str:
@@ -84,12 +96,25 @@ def home(streak: int, best: int, strip: str, read_today: bool, freeze_balance: i
     )
 
 
+def comeback_line(change, total_streak: int) -> str | None:
+    if change is None:
+        return None
+    if change.bonus_added:
+        return COMEBACK_RESTORED.format(added=fa(change.bonus_added), total=fa(total_streak))
+    if change.broken_days:
+        return COMEBACK_BROKEN.format(days=fa(change.broken_days))
+    if change.progress_done:
+        return COMEBACK_PROGRESS.format(done=fa(change.progress_done))
+    return None
+
+
 def read_toast(
     streak: int,
     created: bool,
     freeze_used: bool = False,
     freeze_earned: bool = False,
     freeze_balance: int = 0,
+    comeback: str | None = None,
 ) -> str:
     if not created:
         return ALREADY_READ
@@ -106,6 +131,8 @@ def read_toast(
             f"\n🎁 یک فریز جایزه گرفتی؛ موجودی: "
             f"{fa(freeze_balance)}/{fa(MAX_STREAK_FREEZES)}"
         )
+    if comeback:
+        message += f"\n{comeback}"
     return message
 
 
@@ -189,6 +216,8 @@ def admin_dashboard(stats: dict[str, int], series: list[tuple[object, int]]) -> 
         f"{fa(stats['max_record_streak'])} روز\n"
         f"⏰ یادآورها: {fa(stats['reminders'])}\n"
         f"🛡️ فریزهای مصرف‌شده: {fa(stats['freezes_used'])}\n"
+        f"⚠️ هشدار «استریک در خطر» در ۷ روز: {fa(stats['streak_alerts_7d'])}\n"
+        f"🔁 کاربران با پاداش comeback: {fa(stats['comeback_users'])}\n"
         f"🗑 حساب حذف‌شده: {fa(stats['accounts_deleted'])} · ۷ روز اخیر: "
         f"{fa(stats['deletions_7d'])}\n\n"
         "<b>فعالیت ۷ روز اخیر</b>\n" + "\n".join(chart)

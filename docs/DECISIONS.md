@@ -32,11 +32,13 @@ Each entry records current intent, not a claim that future work is implemented.
 
 ## D-03 — Streak Is Derived From Reads and Freeze Events
 
-**Status:** Implemented.
+**Status:** Implemented; extended by the comeback bonus (S-07).
 
 **Context:** `ReadingLog` stores one row per user and local calendar date; `StreakFreeze` stores separate earned/used events. `services/streak.py` derives current and longest streaks from both.
 
 **Decision:** Keep streak counters derived rather than mutable. A used freeze date participates in streak continuity but never counts as a reading day or freeze-earning progress.
+
+**Comeback extension (S-07):** When a displayed streak of three or more days breaks, the next reading day opens a comeback window stored on `users` (`broken_streak_days`, `comeback_base_day`). After three consecutive reading days, half of the broken streak (floor, capped at 30) is added as `comeback_bonus_days`. The bonus is displayed (`displayed_streak`) only while the chain that earned it remains unbroken, and it never affects `longest_streak`, freeze earning, or analytics, which keep using the raw derived streak.
 
 **Why:** The date log is the source of truth and uniqueness makes same-day recording idempotent.
 

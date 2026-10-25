@@ -3,7 +3,14 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from BOOKzMA.db.models import ActivityDay, ReadingLog, Reminder, StreakFreeze, User
+from BOOKzMA.db.models import (
+    ActivityDay,
+    ReadingLog,
+    Reminder,
+    StreakAlert,
+    StreakFreeze,
+    User,
+)
 from BOOKzMA.repositories import users
 from BOOKzMA.services.streak import compute_streak, longest_streak
 from BOOKzMA.utils import local_today
@@ -45,6 +52,16 @@ async def dashboard(session: AsyncSession, today: date) -> dict[str, int]:
         "reminders": await session.scalar(select(func.count()).select_from(Reminder)) or 0,
         "freezes_used": await session.scalar(
             select(func.count()).select_from(StreakFreeze).where(StreakFreeze.kind == "used")
+        )
+        or 0,
+        "streak_alerts_7d": await session.scalar(
+            select(func.count()).select_from(StreakAlert).where(StreakAlert.day >= seven_days_ago)
+        )
+        or 0,
+        "comeback_users": await session.scalar(
+            select(func.count())
+            .select_from(User)
+            .where(User.comeback_bonus_days > 0)
         )
         or 0,
     }

@@ -13,6 +13,7 @@ from BOOKzMA.middlewares.db import DbSessionMiddleware
 from BOOKzMA.middlewares.membership import MembershipMiddleware
 from BOOKzMA.services.scheduler import reminder_loop
 from BOOKzMA.services.broadcast import broadcast_loop
+from BOOKzMA.services.risk_alert import risk_alert_loop
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ async def start_bot(settings: Settings, session_pool) -> tuple[Bot, list[asyncio
 
     reminders_task = asyncio.create_task(reminder_loop(bot, session_pool))
     broadcast_task = asyncio.create_task(broadcast_loop(bot, session_pool))
+    risk_alert_task = asyncio.create_task(risk_alert_loop(bot, session_pool))
     try:
         await bot.set_my_commands(COMMANDS)
         for admin_id in settings.admin_ids:
@@ -52,4 +54,4 @@ async def start_bot(settings: Settings, session_pool) -> tuple[Bot, list[asyncio
         log.warning("set_my_commands failed, continuing")
     polling_task = asyncio.create_task(dp.start_polling(bot))
     log.info("Telegram polling task started")
-    return bot, [reminders_task, broadcast_task, polling_task]
+    return bot, [reminders_task, broadcast_task, risk_alert_task, polling_task]

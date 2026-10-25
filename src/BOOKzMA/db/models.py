@@ -33,6 +33,10 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # comeback streak (S-07): دورهٔ بازگشت فعال و پاداش جمع‌شده
+    broken_streak_days: Mapped[int | None] = mapped_column(Integer)
+    comeback_bonus_days: Mapped[int] = mapped_column(default=0, server_default="0")
+    comeback_base_day: Mapped[date | None] = mapped_column(Date)
 
 
 class ReadingLog(Base):
@@ -62,6 +66,18 @@ class StreakFreeze(Base):
 class ActivityDay(Base):
     __tablename__ = "activity_days"
     __table_args__ = (Index("ix_activity_days_day", "day"),)
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+
+
+class StreakAlert(Base):
+    """dedup روزانهٔ هشدار «استریک در خطر» (S-08)."""
+
+    __tablename__ = "streak_alerts"
+    __table_args__ = (Index("ix_streak_alerts_day", "day"),)
 
     user_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
