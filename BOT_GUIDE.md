@@ -83,6 +83,8 @@ Admin analytics count starts recorded from the new deployment onward, UTC daily 
 
 Membership checks run for bot messages and callbacks, except the `check_join` callback itself and the `account_restore` callback. Required channels come from `REQUIRED_CHANNELS`, defaulting to an empty list if unset. Only successful checks are cached, per process, for 300 seconds. A membership-check Telegram error is treated as not joined. Every update also performs one indexed tombstone lookup (`deleted_accounts`) before handlers run, so deleted users never reach `get_or_create`.
 
+A per-process rate-limit middleware (`middlewares/rate_limit.py`, decision D-10) runs before the membership middleware for messages and callbacks: a user may send at most `RATE_LIMIT_MAX_UPDATES` updates (default 20) per `RATE_LIMIT_WINDOW_SECONDS` (default 10). Admins are exempt. A blocked update never reaches a handler or the DB session; the user gets the rate-limit text at most once per window and the event is logged (`log.warning`), not counted in admin analytics. The window state is in-memory and resets on restart.
+
 ## Environment
 
 | Variable | Read by | Current behavior |
@@ -98,6 +100,8 @@ Membership checks run for bot messages and callbacks, except the `check_join` ca
 | `BOOKZMA_BACKUP_DIR` | Compose | Required by Compose; host folder bind-mounted into the bot at `/backups`; must be outside the repository |
 | `BACKUP_DIR` | `Settings` / backup service | Backup folder inside the container; defaults to `/backups` |
 | `BACKUP_KEEP_LOCAL` | `Settings` / backup service | Number of newest local backups to keep after rotation; defaults to 1 |
+| `RATE_LIMIT_MAX_UPDATES` | `Settings` / rate-limit middleware | Optional; max updates per user per window across messages and callbacks; defaults to 20 |
+| `RATE_LIMIT_WINDOW_SECONDS` | `Settings` / rate-limit middleware | Optional; fixed window length in seconds; defaults to 10 |
 | `LOG_LEVEL` | `Settings` | Defaults to `INFO`; no logging configuration consuming it was found |
 
 `.env.sample` documents the variables above and an optional placeholder `DATABASE_URL` for local tools. Set the real owner ID and support destinations in the runtime environment; do not commit them. Code supplies a default database URL and Compose overrides it for the bot container.
@@ -105,6 +109,6 @@ Membership checks run for bot messages and callbacks, except the `check_join` ca
 ## Verified Caveats
 
 - The application runs migrations automatically during API lifespan startup by default.
-- Telegram polling, reminder work, FSM storage, and membership cache are process-local; use one application instance.
+- Telegram polling, reminder work, FSM storage, membership cache, and rate-limit windows are process-local; use one application instance.
 - Reminder delivery holds a DB session while scanning and sending. Each candidate may cause additional reads; consult [docs/PERFORMANCE.md](docs/PERFORMANCE.md) before changing this path.
-- No rate limiter for HTTP endpoints was found. Callback handlers validate preset values, numeric IDs, and timezone indexes, but changes must continue to enforce payload parsing and Telegram's 64-byte callback-data limit.
+- Bot updates are rate-limited per user (D-10); no rate limiter for HTTP endpoints was found. Callback handlers validate preset values, numeric IDs, and timezone indexes, but changes must continue to enforce payload parsing and Telegram's 64-byte callback-data limit.

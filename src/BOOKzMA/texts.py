@@ -46,6 +46,7 @@ ACCOUNT_DELETE_CANCELLED = "باشه، حذف لغو شد. خوشحالیم که
 ACCOUNT_DELETED_NOTICE = "برای شروع، دکمهٔ زیر رو بزن 👋"
 ACCOUNT_RESTORED = "شروع شد! 📚"
 INVALID_ACTION = "این دکمه دیگه معتبر نیست. دوباره امتحان کن 🙏"
+RATE_LIMITED = "آروم‌تر 🙂 چند لحظه صبر کن و بعد دوباره امتحان کن."
 
 BACKUP_NONE = "هنوز هیچ بکاپی ثبت نشده. با دکمهٔ «بکاپ جدید» یکی بگیر."
 BACKUP_MENU_TITLE = "💾 <b>بکاپ دیتابیس</b>\n"
