@@ -285,7 +285,7 @@ def mesbak_buddy_invite_kb(share_url: str) -> InlineKeyboardMarkup:
 
 
 def mesbak_buddy_list_kb(
-    rows: list[tuple[int, str]], queued: bool = False, random_matched: bool = False
+    rows: list[tuple[int, str]], queued: bool = False
 ) -> InlineKeyboardMarkup:
     buttons = [
         _btn(
@@ -295,15 +295,13 @@ def mesbak_buddy_list_kb(
         for pair_id, name in rows
     ]
     keyboard = _chunk(buttons, 1)
+    if buttons:
+        keyboard.insert(0, [_btn("🔔 تلنگر به همهٔ مسباک‌نزده‌ها", "mesbak:buddy:nudge:all")])
     if queued:
         keyboard.append([_btn("لغو انتظار ناشناس", "mesbak:buddy:random:leave")])
-    elif not random_matched:
-        keyboard.extend(
-            [
-                [_btn("🔍 پیدا کردن رفیق ناشناس", "mesbak:buddy:random:join")],
-                [_btn("🔗 دعوت دوست با لینک", "mesbak:buddy:invite")],
-            ]
-        )
+    else:
+        keyboard.append([_btn("🔍 پیدا کردن رفیق ناشناس", "mesbak:buddy:random:join")])
+    keyboard.append([_btn("🔗 دعوت دوست با لینک", "mesbak:buddy:invite")])
     keyboard.append([_btn("🔙 برگشت", "mesbak:open")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 

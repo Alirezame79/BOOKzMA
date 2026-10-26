@@ -98,21 +98,20 @@ async def _user_from_callback(
 
 @router.message(F.text == "🪥 مسباک")
 @router.message(Command("mesbak"))
-@router.message(Command("mesbak"))
 async def on_menu(message: Message, session: AsyncSession, state: FSMContext) -> None:
     await state.clear()
     if message.from_user:
         await render_mesbak(message, session, message.from_user)
 
 
-@router.callback_query(F.data.in_({"mesbak:open", "mesbak:open"}))
+@router.callback_query(F.data == "mesbak:open")
 async def on_open(callback: CallbackQuery, session: AsyncSession, state: FSMContext) -> None:
     await state.clear()
     await callback.answer()
     await render_mesbak(callback, session, callback.from_user)
 
 
-@router.callback_query(F.data.in_({"mesbak:choose_goal", "mesbak:choose_goal"}))
+@router.callback_query(F.data == "mesbak:choose_goal")
 async def on_choose_goal(callback: CallbackQuery, session: AsyncSession) -> None:
     profile = await mesbak_repo.get_profile(session, callback.from_user.id)
     if profile is None or not profile.enabled:
@@ -166,7 +165,7 @@ async def _configure_from_callback(
     await render_mesbak(callback, session, tg)
 
 
-@router.callback_query(F.data.startswith(("mesbak:join:", "mesbak:join:")))
+@router.callback_query(F.data.startswith("mesbak:join:"))
 async def on_join(callback: CallbackQuery, session: AsyncSession) -> None:
     match = re.fullmatch(r"(?:mesbak|mesbak):join:([1-5])", callback.data or "")
     if match is None:
@@ -175,7 +174,7 @@ async def on_join(callback: CallbackQuery, session: AsyncSession) -> None:
     await _configure_from_callback(callback, session, int(match[1]))
 
 
-@router.callback_query(F.data.startswith(("mesbak:goal:", "mesbak:goal:")))
+@router.callback_query(F.data.startswith("mesbak:goal:"))
 async def on_goal(callback: CallbackQuery, session: AsyncSession) -> None:
     match = re.fullmatch(r"(?:mesbak|mesbak):goal:([1-5])", callback.data or "")
     if match is None:
@@ -188,7 +187,7 @@ async def on_goal(callback: CallbackQuery, session: AsyncSession) -> None:
     await _configure_from_callback(callback, session, int(match[1]))
 
 
-@router.callback_query(F.data.startswith(("mesbak:done:", "mesbak:done:")))
+@router.callback_query(F.data.startswith("mesbak:done:"))
 async def on_record(callback: CallbackQuery, session: AsyncSession) -> None:
     match = re.fullmatch(r"(?:mesbak|mesbak):done:(\d{8}):([1-5])", callback.data or "")
     if match is None:
@@ -226,7 +225,7 @@ async def on_record(callback: CallbackQuery, session: AsyncSession) -> None:
     await render_mesbak(callback, session, tg)
 
 
-@router.callback_query(F.data.startswith(("mesbak:time:", "mesbak:time:")))
+@router.callback_query(F.data.startswith("mesbak:time:"))
 async def on_time_settings(callback: CallbackQuery, session: AsyncSession) -> None:
     match = re.fullmatch(r"(?:mesbak|mesbak):time:([1-5])", callback.data or "")
     if match is None:
@@ -284,7 +283,7 @@ async def _save_time(
     await render_mesbak(callback, session, tg)
 
 
-@router.callback_query(F.data.startswith(("mesbak:settime:", "mesbak:settime:")))
+@router.callback_query(F.data.startswith("mesbak:settime:"))
 async def on_preset_time(callback: CallbackQuery, session: AsyncSession) -> None:
     match = re.fullmatch(r"(?:mesbak|mesbak):settime:([1-5]):(\d{4})", callback.data or "")
     presets = {value.replace(":", "") for value in MESBAK_PRESET_TIMES}
@@ -294,7 +293,7 @@ async def on_preset_time(callback: CallbackQuery, session: AsyncSession) -> None
     await _save_time(callback, session, int(match[1]), time(int(match[2][:2]), int(match[2][2:])))
 
 
-@router.callback_query(F.data.startswith(("mesbak:customtime:", "mesbak:customtime:")))
+@router.callback_query(F.data.startswith("mesbak:customtime:"))
 async def on_custom_time_start(
     callback: CallbackQuery, state: FSMContext
 ) -> None:
@@ -355,7 +354,7 @@ async def on_custom_time(message: Message, session: AsyncSession, state: FSMCont
     await render_mesbak(message, session, message.from_user)
 
 
-@router.callback_query(F.data.in_({"mesbak:exit", "mesbak:exit"}))
+@router.callback_query(F.data == "mesbak:exit")
 async def on_exit(callback: CallbackQuery, session: AsyncSession) -> None:
     await mesbak_repo.set_enabled(session, callback.from_user.id, False)
     await session.commit()
@@ -363,7 +362,7 @@ async def on_exit(callback: CallbackQuery, session: AsyncSession) -> None:
     await render_mesbak(callback, session, callback.from_user)
 
 
-@router.callback_query(F.data.in_({"mesbak:weekly", "mesbak:weekly"}))
+@router.callback_query(F.data == "mesbak:weekly")
 async def on_weekly(callback: CallbackQuery, session: AsyncSession) -> None:
     tg, today, user_id = await _user_from_callback(callback, session)
     profile = await mesbak_repo.get_profile(session, user_id, today)
@@ -385,7 +384,7 @@ async def on_weekly(callback: CallbackQuery, session: AsyncSession) -> None:
     await show(callback, text, keyboards.weekly_kb())
 
 
-@router.callback_query(F.data.in_({"mesbak:monthly", "mesbak:monthly"}))
+@router.callback_query(F.data == "mesbak:monthly")
 async def on_monthly(callback: CallbackQuery, session: AsyncSession) -> None:
     tg, today, user_id = await _user_from_callback(callback, session)
     profile = await mesbak_repo.get_profile(session, user_id, today)

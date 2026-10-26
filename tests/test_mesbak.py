@@ -148,26 +148,39 @@ def test_mesbak_screen_shows_independent_badges():
 
 def test_mesbak_buddy_button_labels_are_bounded_and_single_line():
     keyboard = keyboards.mesbak_buddy_list_kb([(1, "نام\n" + "x" * 100)])
-    buddy_label = keyboard.inline_keyboard[0][0].text
+    buddy_button = keyboard.inline_keyboard[1][0]
 
-    assert "\n" not in buddy_label
-    assert len(buddy_label) <= 64
-    assert keyboard.inline_keyboard[0][0].callback_data == "mesbak:buddy:open:1"
+    assert "\n" not in buddy_button.text
+    assert len(buddy_button.text) <= 64
+    assert buddy_button.callback_data == "mesbak:buddy:open:1"
+
+
+def _kb_callbacks(kb) -> list[str]:
+    return [button.callback_data for row in kb.inline_keyboard for button in row]
 
 
 def test_mesbak_buddy_screen_offers_anonymous_match_and_queue_cancel():
     empty = keyboards.mesbak_buddy_list_kb([])
     assert empty.inline_keyboard[0][0].callback_data == "mesbak:buddy:random:join"
+    assert "mesbak:buddy:invite" in _kb_callbacks(empty)
+    assert "mesbak:buddy:nudge:all" not in _kb_callbacks(empty)
 
     queued = keyboards.mesbak_buddy_list_kb([], queued=True)
     assert queued.inline_keyboard[0][0].callback_data == "mesbak:buddy:random:leave"
+    queued_callbacks = _kb_callbacks(queued)
+    assert "mesbak:buddy:invite" in queued_callbacks
+    assert "mesbak:buddy:random:join" not in queued_callbacks
     assert "رفیق ناشناس" in texts.mesbak_buddies([], queued=True)
-    active_match = keyboards.mesbak_buddy_list_kb([(1, "رفیق ناشناس")], random_matched=True)
-    assert all(
-        button.callback_data != "mesbak:buddy:random:join"
-        for row in active_match.inline_keyboard
-        for button in row
-    )
+
+    # با چند رفیق فعال هم دکمهٔ ناشناس و لینک در دسترس می‌ماند + تلنگر گروهی
+    with_buddies = keyboards.mesbak_buddy_list_kb([(1, "رفیق یک"), (2, "رفیق دو")])
+    buddy_callbacks = _kb_callbacks(with_buddies)
+    assert with_buddies.inline_keyboard[0][0].callback_data == "mesbak:buddy:nudge:all"
+    assert buddy_callbacks.count("mesbak:buddy:open:1") == 1
+    assert buddy_callbacks.count("mesbak:buddy:open:2") == 1
+    assert "mesbak:buddy:random:join" in buddy_callbacks
+    assert "mesbak:buddy:invite" in buddy_callbacks
+
     pair_kb = keyboards.mesbak_buddy_pair_kb(1)
     assert [button.callback_data for button in pair_kb.inline_keyboard[0]] == [
         "mesbak:buddy:nudge:1"
@@ -175,7 +188,16 @@ def test_mesbak_buddy_screen_offers_anonymous_match_and_queue_cancel():
     assert pair_kb.inline_keyboard[1][0].callback_data == "mesbak:buddy:end:1"
     assert "پایان رفاقت" in pair_kb.inline_keyboard[1][0].text
     assert "پایان رفاقت 1" not in pair_kb.inline_keyboard[1][0].text
-    assert "پایان رفاقت" in texts.MESBAK_BUDDY_ENDED or "رفاقت مسباک تمام شد" in texts.MESBAK_BUDDY_ENDED
+    assert "رفاقت مسباک تمام شد" in texts.MESBAK_BUDDY_ENDED
+
+
+def test_mesbak_buddy_nudge_summary_matches_library_buddy_style():
+    empty = texts.mesbak_buddy_nudge_summary(0, 0, 0, 0)
+    assert empty == "امروز موردی برای تلنگر نبود."
+    summary = texts.mesbak_buddy_nudge_summary(2, 1, 1, 0)
+    assert "۲ نفر" in summary
+    assert "کامل کرده بودند" in summary
+    assert "قبلاً تلنگر" in summary
 
 
 def test_mesbak_goal_keyboard_has_valid_rows_and_callbacks():
@@ -212,3 +234,90 @@ def test_ambiguous_dst_reminder_is_suppressed_after_first_fold_send():
 
     assert reminder_due(first_fold, time(1, 30), None, 0, None)
     assert not reminder_due(second_fold, time(1, 30), first_fold.date(), 1, None)
+
+def test_mesbak_buddy_nudge_all_targets_only_incomplete_buddies(monkeypatch):
+    import asyncio
+    from datetime import timezone
+    from types import SimpleNamespace
+
+    from aiogram.types import Chat, Message as TgMessage
+
+    from BOOKzMA.handlers import mesbak_social
+
+    async def run_test():
+        pairs = [SimpleNamespace(id=11), SimpleNamespace(id=22), SimpleNamespace(id=33)]
+        buddies = [
+            SimpleNamespace(id=101, timezone="Asia/Tehran", display_name="کامل"),
+            SimpleNamespace(id=102, timezone="Asia/Tehran", display_name="ناقص"),
+            SimpleNamespace(id=103, timezone="Asia/Tehran", display_name="تلنگرخورده"),
+        ]
+        answered = []
+        answered_message = []
+
+        async def active_user(_session, _tg):
+            me = SimpleNamespace(id=1, display_name="من", timezone="Asia/Tehran")
+            return me, date(2026, 10, 26)
+
+        async def buddy_users(_session, _user_id):
+            return list(zip(pairs, buddies))
+
+        async def completed_on_days(_session, user_days):
+            return {101}
+
+        async def claim(_session, _user_id, pair_id, _today):
+            if pair_id == 22:
+                return "ok", 102, "random"
+            return "limit", 103, "random"
+
+        class FakeBot:
+            def __init__(self):
+                self.sent_to = []
+                self.methods = []
+
+            async def __call__(self, method):
+                self.methods.append(method)
+
+            async def send_message(self, chat_id, text, **kwargs):
+                self.sent_to.append((chat_id, text))
+
+        fake_bot = FakeBot()
+        monkeypatch.setattr(mesbak_social, "_active_user", active_user)
+        monkeypatch.setattr(mesbak_social.mesbak_repo, "buddy_users", buddy_users)
+        monkeypatch.setattr(
+            mesbak_social.mesbak_repo, "users_completed_on_days", completed_on_days
+        )
+        monkeypatch.setattr(mesbak_social.mesbak_repo, "claim_buddy_nudge", claim)
+
+        async def commit():
+            return None
+
+        async def answer(text=None, show_alert=False):
+            answered.append(text)
+
+        chat = Chat(id=1, type="private")
+
+        def make_fake_message(sink):
+            class FakeMessage(TgMessage):
+                async def answer(self, text, **kwargs):
+                    sink.append(text)
+
+            return FakeMessage(
+                message_id=1, date=datetime.now(tz=timezone.utc), chat=chat
+            )
+
+        session = SimpleNamespace(commit=commit)
+        callback = SimpleNamespace(
+            from_user=SimpleNamespace(id=1, username="u", full_name="من"),
+            data="mesbak:buddy:nudge:all",
+            answer=answer,
+            message=make_fake_message(answered_message),
+        )
+        await mesbak_social.on_buddy_nudge_all(callback, session, fake_bot)
+
+        assert [chat_id for chat_id, _text in fake_bot.sent_to] == [102]
+        assert "من" in fake_bot.sent_to[0][1]
+        assert answered_message and "۱ نفر" in answered_message[0]
+        assert "کامل کرده بودند" in answered_message[0]
+        assert "قبلاً تلنگر" in answered_message[0]
+
+    asyncio.run(run_test())

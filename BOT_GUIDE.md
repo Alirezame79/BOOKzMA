@@ -35,8 +35,8 @@ Callback payloads implemented in handlers/keyboards:
 | `mesbak:weekly` / `mesbak:monthly` | Show 7-day or 30-day completion and streak reports |
 | `mesbak:challenge:start:<7|30>` | Start one personal consecutive-day challenge |
 | `mesbak:league` / `mesbak:league:toggle` | View or opt in/out of the Mesbak-only weekly league |
-| `mesbak:buddy:invite` / `mesbak:buddy:open:<id>` / `mesbak:buddy:nudge:<id>` / `mesbak:buddy:end:<id>` | Invite, open one buddy's screen, nudge, or end a separate Mesbak buddy pair |
-| `mesbak:buddy:random:join` / `mesbak:buddy:random:leave` | Join or leave the independent anonymous FIFO Mesbak matching queue |
+| `mesbak:buddy:invite` / `mesbak:buddy:open:<id>` / `mesbak:buddy:nudge:all` / `mesbak:buddy:nudge:<id>` / `mesbak:buddy:end:<id>` | Invite, open one buddy's screen, nudge all incomplete buddies, nudge, or end a separate Mesbak buddy pair |
+| `mesbak:buddy:random:join` / `mesbak:buddy:random:leave` | Join or leave the anonymous FIFO Mesbak matching queue; users may hold several buddies at once, and matching never pairs two users who already have an active pair |
 | `account_del:start` | Start the account-deletion wizard from the profile |
 | `account_del:why` | Show the deletion-reason choices |
 | `account_del:reason:<index>` | Record a reason (validated against `DELETE_REASONS`) and ask for the typed confirmation word |
@@ -111,7 +111,7 @@ The existing FastAPI app is in `api.py`; the container runs it through Uvicorn. 
 | `mesbak_reminders` | Up to five independent local times, one per goal slot; unique per user/time with separate send/retry state |
 | `mesbak_badges` | Independent 7/30/100-day streak badges; unique `(user_id, code)` |
 | `mesbak_challenges` | One active personal 7- or 30-day consecutive completion challenge per user; canceled after a missed, closed local day |
-| `mesbak_buddy_invites` / `mesbak_buddy_pairs` | Hashed, one-time, seven-day invite tokens; independent opt-in pairs and once-per-day nudges |
+| `mesbak_buddy_invites` / `mesbak_buddy_pairs` | Hashed, one-time, seven-day invite tokens; independent opt-in pairs (several simultaneous buddies allowed) and once-per-day nudges |
 | `mesbak_buddy_queue` | One waiting row per active Mesbak member; removed on match, leaving the queue, Mesbak opt-out, or account deletion |
 
 Reading streak is computed from read dates plus explicitly used freeze dates; freeze days are not reported as reading. Users start with zero freezes, earn one per seven consecutive real reading days, and hold at most two. One missed day is automatically protected when reading resumes the next day; freezes cannot cover consecutive missed days. Weekly summaries cover today and the preceding six local dates. Reading reminders are capped at five per user; presets are `08:00`, `13:00`, `18:00`, `21:00`, and `23:00`.

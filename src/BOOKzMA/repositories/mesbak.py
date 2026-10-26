@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 
-from sqlalchemy import case, delete, func, or_, select, text, update
+from sqlalchemy import case, delete, func, or_, select, text, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -493,26 +493,17 @@ async def join_random_buddy_queue(
     if profile is None:
         return "inactive", None
 
-    active_match = await session.scalar(
-        select(MesbakBuddyPair.id).where(
-            MesbakBuddyPair.status == "active",
-            MesbakBuddyPair.pair_type == "random",
-            or_(MesbakBuddyPair.user_a == user_id, MesbakBuddyPair.user_b == user_id),
-        )
-    )
-    if active_match is not None:
-        return "already", None
-
     statement = insert(MesbakBuddyQueue).values(user_id=user_id)
     await session.execute(
         statement.on_conflict_do_nothing(index_elements=[MesbakBuddyQueue.user_id])
     )
-    existing_random_pair = select(MesbakBuddyPair.id).where(
+    paired_with_me = select(MesbakBuddyPair.id).where(
         MesbakBuddyPair.status == "active",
-        MesbakBuddyPair.pair_type == "random",
         or_(
-            MesbakBuddyPair.user_a == MesbakBuddyQueue.user_id,
-            MesbakBuddyPair.user_b == MesbakBuddyQueue.user_id,
+            (MesbakBuddyPair.user_a == user_id)
+            & (MesbakBuddyPair.user_b == MesbakBuddyQueue.user_id),
+            (MesbakBuddyPair.user_b == user_id)
+            & (MesbakBuddyPair.user_a == MesbakBuddyQueue.user_id),
         ),
     )
     partner_id = await session.scalar(
@@ -521,7 +512,7 @@ async def join_random_buddy_queue(
         .where(
             MesbakBuddyQueue.user_id != user_id,
             MesbakProfile.enabled.is_(True),
-            ~existing_random_pair.exists(),
+            ~paired_with_me.exists(),
         )
         .order_by(MesbakBuddyQueue.joined_at, MesbakBuddyQueue.user_id)
         .with_for_update(of=MesbakBuddyQueue, skip_locked=True)
@@ -586,6 +577,44 @@ async def buddy_rows(
         (pair_id, friend_id, display_name or "کاربر", pair_type)
         for pair_id, friend_id, display_name, pair_type in result
     ]
+
+
+async def buddy_users(
+    session: AsyncSession, user_id: int
+) -> list[tuple[MesbakBuddyPair, User]]:
+    """همهٔ رفیق‌های فعال با آبجکت User؛ مرتب بر اساس نام نمایشی."""
+    friend_id = case(
+        (MesbakBuddyPair.user_a == user_id, MesbakBuddyPair.user_b),
+        else_=MesbakBuddyPair.user_a,
+    )
+    rows = await session.execute(
+        select(MesbakBuddyPair, User)
+        .join(User, User.id == friend_id)
+        .where(
+            MesbakBuddyPair.status == "active",
+            or_(MesbakBuddyPair.user_a == user_id, MesbakBuddyPair.user_b == user_id),
+        )
+        .order_by(User.display_name, User.id)
+    )
+    return [(pair, buddy) for pair, buddy in rows]
+
+
+async def users_completed_on_days(
+    session: AsyncSession, user_days: list[tuple[int, date]]
+) -> set[int]:
+    """کاربرهایی که در روز محلی خودشان هدف مسباک را کامل کرده‌اند (کوئری دسته‌ای)."""
+    if not user_days:
+        return set()
+    result = await session.scalars(
+        select(MesbakEntry.user_id)
+        .where(tuple_(MesbakEntry.user_id, MesbakEntry.day).in_(user_days))
+        .group_by(MesbakEntry.user_id, MesbakEntry.day)
+        .having(
+            func.count() >= func.max(MesbakEntry.daily_goal),
+            func.max(MesbakEntry.daily_goal).between(1, 5),
+        )
+    )
+    return set(result)
 
 
 async def buddy_pair_for_user(
