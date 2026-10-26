@@ -6,10 +6,11 @@ This repository contains a Persian Telegram reading bot and a FastAPI HTTP API. 
 
 - `src/BOOKzMA/__main__.py` starts `BOOKzMA.api:create_app` through Uvicorn. `Dockerfile` uses the same factory and binds port 8000 inside the container.
 - `create_app()` runs Alembic upgrades at startup by default, creates an async SQLAlchemy engine/session pool, and starts the bot unless its factory options disable those behaviors.
-- `bot.py` creates an aiogram `Dispatcher`, registers `DbSessionMiddleware` at update scope, and registers `MembershipMiddleware` for messages and callback queries. The middleware exempts configured admin IDs from the membership gate and records UTC daily interaction. The bot scopes `/admin` to admins and starts polling, separate reading/miswak reminder tasks, the streak-risk alert, and the durable broadcast worker.
-- Bot handlers live in `handlers/`; API routes are declared inside `api.create_app()`. Both paths call repositories directly and commit their own writes. `services/streak.py` contains date-based calculations; the reminder scheduler is asynchronous but depends on aiogram and repositories.
+- `bot.py` creates an aiogram `Dispatcher`, registers `DbSessionMiddleware` at update scope, and registers `RateLimitMiddleware` before `MembershipMiddleware` for messages and callback queries. The rate-limit middleware is a per-process in-memory fixed window (D-10) that swallows blocked updates before the DB session opens; the membership middleware exempts configured admin IDs from the membership gate and records UTC daily interaction. The bot scopes `/admin` to admins and starts polling, separate reading/miswak reminder tasks, the streak-risk alert, and the durable broadcast worker.
+- Bot handlers live in `handlers/`; API routes are declared inside `api.create_app()`. Both paths call repositories directly and commit their own writes. `services/streak.py` contains date-based calculations; the reminder scheduler is asynchronous but depends on aiogram and repositories. `services/backup.py` runs `pg_dump`/`pg_restore` subprocesses against the database (installed as `postgresql-client` in the image) and owns backup naming, validation, and local rotation; the destructive-restore flow lives in the admin handler.
 - `repositories/` contains SQLAlchemy queries and PostgreSQL upserts. `db/` contains the declarative base, models, and async session-pool factory.
 - `texts.py` holds user-facing Persian bot messages; `keyboards.py` constructs inline keyboards.
+- `scripts/backup.py` and `scripts/restore.py` are stdlib-only host-side tools (not part of the image): the daily cron backup with optional Google Drive upload via `rclone`, and restore rehearsal against a temporary database. They share the backup-folder contract with the in-app service but do not import application code.
 
 ## Data and State
 
@@ -23,12 +24,12 @@ This repository contains a Persian Telegram reading bot and a FastAPI HTTP API. 
 ## Operational Limits
 
 - `reminder_loop`, `miswak_reminder_loop`, and `risk_alert_loop` run in the same process as the bot and may perform additional database queries per candidate. Detailed timing and retry behavior are in [BOT_GUIDE.md](BOT_GUIDE.md); the observed query hot path is in [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
-- Polling, reminder/broadcast tasks, FSM state, membership cache, and the broadcast start lock are process-local. The current deployment is designed for one application instance; replicas would duplicate polling and background work and would not share FSM/cache/lock state.
+- Polling, reminder/broadcast tasks, FSM state, membership cache, rate-limit windows, and the broadcast start lock are process-local. The current deployment is designed for one application instance; replicas would duplicate polling and background work and would not share FSM/cache/lock state.
 - The API health endpoint reports process-level `{"status":"ok"}` and does not verify database or Telegram availability.
 
 ## Local and Production
 
-Production Compose runs PostgreSQL and the API/bot application together as containers. The host publishes PostgreSQL on `127.0.0.1:5433` and the application on `127.0.0.1:8000`. The Docker image runs as UID 10001 and copies only requirements, `src/`, `migrations/`, and `alembic.ini`. Compose leaves the aiogram session at its default, with no Telegram proxy.
+Production Compose runs PostgreSQL and the API/bot application together as containers. The host publishes PostgreSQL on `127.0.0.1:5433` and the application on `127.0.0.1:8000`. The Docker image runs as UID 10001 and copies only requirements, `src/`, `migrations/`, and `alembic.ini`. Compose leaves the aiogram session at its default, with no Telegram proxy. The bot container also bind-mounts `BOOKZMA_BACKUP_DIR` at `/backups` for database backups; the folder must exist on the host, be outside the repository, and be writable by UID 10001.
 
 For local development, Compose can run only PostgreSQL while the ignored `dev_run.py` starts the same FastAPI/bot app on the host. The launcher reads optional `TELEGRAM_PROXY` from `Settings` and injects an aiogram session; configure `DATABASE_URL` to use the host-published database port and use a separate test bot token. Stop the Compose bot first to avoid two pollers. See [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md) before changing entrypoints, configuration, or deployment.
 

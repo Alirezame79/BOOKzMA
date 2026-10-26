@@ -119,7 +119,7 @@ def support_kb(github_url: str, support_url: str) -> InlineKeyboardMarkup:
 def admin_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [_btn("📊 آمار بات", "admin:stats")],
+            [_btn("📊 آمار بات", "admin:stats"), _btn("💾 بکاپ", "admin:backup")],
             [_btn("📣 پیام همگانی", "admin:broadcast")],
         ]
     )
@@ -133,6 +133,38 @@ def broadcast_audience_kb() -> InlineKeyboardMarkup:
             [_btn("🔙 برگشت", "admin:stats")],
         ]
     )
+
+
+def backup_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_btn("💾 بکاپ جدید", "admin:backup_now")],
+            [_btn("♻️ بازگردانی از بکاپ", "admin:backup_restore")],
+            [_btn("🔙 برگشت", "admin:stats")],
+        ]
+    )
+
+
+def backup_list_kb(names: list[str]) -> InlineKeyboardMarkup:
+    # ایندکس به ترتیب list_backups (جدیدترین اول) اشاره می‌کند؛ هندلر همین فهرست را دوباره می‌سازد
+    rows = [
+        [_btn(f"♻️ {name}", f"admin:restore_ask:{i}")] for i, name in enumerate(names)
+    ]
+    rows.append([_btn("🔙 برگشت", "admin:backup")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def restore_warn_kb(index: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_btn("ادامه می‌دم", f"admin:restore_ready:{index}")],
+            [_btn("🔙 انصراف", "admin:backup")],
+        ]
+    )
+
+
+def restore_confirm_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[_btn("🔙 انصراف", "admin:backup")]])
 
 
 def broadcast_confirm_kb(campaign_id: int) -> InlineKeyboardMarkup:

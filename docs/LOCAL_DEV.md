@@ -30,6 +30,8 @@ Before starting, ensure `DATABASE_URL` targets the local Compose database and `P
 
 Use a separate test bot. Do not poll the same token from both local and production instances. The test bot must have the channel permissions required by the configured membership gate. Do not expose private token or proxy values in logs or issue reports.
 
+Local (non-Docker) backups: the backup service writes to `BACKUP_DIR` (default `/backups`, meant for the container mount). Locally set `BACKUP_DIR` in `.env` to a writable folder outside the repository; the service refuses a destination inside the source tree, and `*.dump` files are git-ignored anyway. The Compose variable `BOOKZMA_BACKUP_DIR` is only needed for `docker compose up` of the full stack.
+
 ## Compatibility Boundary
 
 Changes must preserve Docker execution and the local workflow. The optional `bot_session` is unset in Compose, so Docker keeps its existing direct session. Local `dev_run.py` builds an aiogram session from `TELEGRAM_PROXY` and runs the same app on the host. Update this file, `BOT_GUIDE.md`, and `.env.sample` when changing settings or entrypoints.

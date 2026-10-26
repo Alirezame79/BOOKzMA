@@ -1,4 +1,5 @@
 from BOOKzMA.constants import MAX_REMINDERS, MILESTONES
+from BOOKzMA.services.backup import BackupInfo
 from BOOKzMA.services.badges import badge_label
 from BOOKzMA.utils import fa
 
@@ -46,6 +47,75 @@ ACCOUNT_DELETE_CANCELLED = "باشه، حذف لغو شد. خوشحالیم که
 ACCOUNT_DELETED_NOTICE = "برای شروع، دکمهٔ زیر رو بزن 👋"
 ACCOUNT_RESTORED = "شروع شد! 📚"
 INVALID_ACTION = "این دکمه دیگه معتبر نیست. دوباره امتحان کن 🙏"
+RATE_LIMITED = "آروم‌تر 🙂 چند لحظه صبر کن و بعد دوباره امتحان کن."
+
+BACKUP_NONE = "هنوز هیچ بکاپی ثبت نشده. با دکمهٔ «بکاپ جدید» یکی بگیر."
+BACKUP_MENU_TITLE = "💾 <b>بکاپ دیتابیس</b>\n"
+RESTORE_WORD = "بازیابی"
+
+
+def _fa_size(size_bytes: int) -> str:
+    if size_bytes >= 1024 * 1024:
+        return f"{fa(round(size_bytes / 1024 / 1024))} مگابایت"
+    return f"{fa(max(1, round(size_bytes / 1024)))} کیلوبایت"
+
+
+def backup_status(backups: list[BackupInfo]) -> str:
+    if not backups:
+        return BACKUP_MENU_TITLE + "\n" + BACKUP_NONE
+    newest = backups[0]
+    lines = [
+        BACKUP_MENU_TITLE,
+        f"آخرین بکاپ: <code>{newest.name}</code>",
+        f"حجم: {_fa_size(newest.size_bytes)}",
+        f"تعداد بکاپ‌های محلی: {fa(len(backups))}",
+    ]
+    return "\n".join(lines)
+
+
+def backup_list(backups: list[BackupInfo]) -> str:
+    lines = [BACKUP_MENU_TITLE, "بکاپ‌های موجود:", ""]
+    for info in backups:
+        lines.append(f"• <code>{info.name}</code> ({_fa_size(info.size_bytes)})")
+    lines.append("")
+    lines.append("برای بازگردانی، یکی رو انتخاب کن.")
+    return "\n".join(lines)
+
+
+def restore_warn(name: str) -> str:
+    return (
+        f"♻️ <b>بازگردانی از بکاپ</b>\n\n"
+        f"فایل: <code>{name}</code>\n\n"
+        "⚠️ با این کار <b>همهٔ داده‌های فعلی</b> (استریک‌ها، مطالعه‌ها، یادآورها و حساب‌های جدید) "
+        "با محتوای همین بکاپ جایگزین می‌شن و برنمی‌گردن.\n\n"
+        "اگه مطمئنی، اول با «بکاپ جدید» از وضعیت الان نسخه بگیر، بعد ادامه بده."
+    )
+
+
+RESTORE_CONFIRM = (
+    "برای تأیید بازگردانی، کلمهٔ <code>بازیابی</code> رو بنویس و بفرست.\n"
+    "با دکمهٔ پایین می‌تونی منصرف شی."
+)
+RESTORE_BAD_WORD = (
+    "کلمهٔ تأیید درست نبود. فقط کافیه <code>بازیابی</code> رو بنویسی، یا منصرف شی."
+)
+RESTORE_RUNNING = "⏳ در حال بازگردانی… ممکنه چند ثانیه طول بکشه."
+RESTORE_DONE = (
+    "✅ بازگردانی انجام شد.\n\n"
+    "برای اعمال کامل، روی سرور <code>docker compose restart bot</code> رو اجرا کن."
+)
+BACKUP_RUNNING = "⏳ در حال گرفتن بکاپ…"
+BACKUP_FAILED = "❌ گرفتن بکاپ ناموفق بود. جزئیات در لاگ سرور."
+RESTORE_FAILED = "❌ بازگردانی ناموفق بود. جزئیات در لاگ سرور."
+
+
+def backup_done(name: str, size_bytes: int) -> str:
+    return f"✅ بکاپ گرفته شد: <code>{name}</code>\nحجم: {_fa_size(size_bytes)}"
+
+
+def admin_backup_hint() -> str:
+    return "بکاپ روزانهٔ خودکار ساعت ۳:۳۰ با cron سرور انجام می‌شه؛ این بخش برای کار دستیه."
+
 
 ONBOARDING_WELCOME = (
     "سلام! 👋 خوش اومدی\n\n"
