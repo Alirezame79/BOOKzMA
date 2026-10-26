@@ -575,7 +575,8 @@ def mesbak_buddies(rows: list[tuple[int, str]], queued: bool = False) -> str:
             "هنوز رفیقی نداری؛ دوستت رو دعوت کن یا رفیق ناشناس پیدا کن."
         )
     friends = "\n".join(
-        f"{fa(index)}. <b>{mesbak_buddy_name(name)}</b>" for index, (_pid, name) in enumerate(rows, 1)
+        f"{fa(index)}. <b>{mesbak_buddy_name(name)}</b>"
+        for index, (_pid, name) in enumerate(rows, 1)
     )
     waiting = "\n\n🔍 در صف پیدا کردن رفیق ناشناس هم هستی." if queued else ""
     return f"🤝 <b>رفیق‌های مسباک</b>\n\n{friends}{waiting}\n\nبرای دیدن هر رفیق، روی اسمش بزن."
@@ -585,12 +586,30 @@ MESBAK_RANDOM_WAITING = "🔍 در صف پیدا کردن رفیق ناشناس 
 MESBAK_RANDOM_MATCHED_SELF = (
     "🤝 رفیقت پیدا شد: <b>{name}</b>! از «🤝 رفیق‌های مسباک» وضعیتش رو دنبال کن."
 )
-MESBAK_RANDOM_MATCHED_PEER = "🤝 رفیق جدید مسباک پیدا شد: <b>{name}</b>! از «🤝 رفیق‌های مسباک» شروع کن."
-MESBAK_RANDOM_ALREADY_MATCHED = "از قبل یک رفیق ناشناس مسباک داری."
+MESBAK_RANDOM_MATCHED_PEER = (
+    "🤝 رفیق جدید مسباک پیدا شد: <b>{name}</b>! از «🤝 رفیق‌های مسباک» شروع کن."
+)
 MESBAK_RANDOM_QUEUE_BUSY = "اول از صف پیدا کردن رفیق ناشناس خارج شو، بعد لینک دعوت بساز."
 MESBAK_RANDOM_LEFT_QUEUE = "از صف پیدا کردن رفیق ناشناس خارج شدی."
 MESBAK_RANDOM_INACTIVE = "برای پیدا کردن رفیق، اول باید عضو فعال مسباک باشی."
 MESBAK_BUDDY_ENDED = "رفاقت مسباک تمام شد. بدون دلخوری؛ هر وقت خواستی دوباره رفیق پیدا کن 👋"
+
+
+def mesbak_buddy_nudge_summary(
+    sent: int, already_done: int, already_nudged: int, failed: int
+) -> str:
+    if not sent and not already_done and not already_nudged and not failed:
+        return "امروز موردی برای تلنگر نبود."
+    parts = []
+    if sent:
+        parts.append(f"به {fa(sent)} نفر تلنگر رفت")
+    if already_done:
+        parts.append(f"{fa(already_done)} نفر امروز مسباکشون رو کامل کرده بودند")
+    if already_nudged:
+        parts.append(f"به {fa(already_nudged)} نفر امروز قبلاً تلنگر زده بودی")
+    if failed:
+        parts.append(f"ارسال به {fa(failed)} نفر انجام نشد")
+    return "؛ ".join(parts) + "."
 
 
 def mesbak_buddy_name(display_name: str | None) -> str:

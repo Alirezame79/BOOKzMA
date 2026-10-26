@@ -52,12 +52,11 @@ async def _render_buddy_list(
     rows = await mesbak_repo.buddy_rows(session, user_id)
     display_rows = [(pair_id, name) for pair_id, _user_id, name, _pair_type in rows]
     queued = await mesbak_repo.is_random_buddy_queued(session, user_id)
-    random_matched = any(pair_type == "random" for *_row, pair_type in rows)
     await session.commit()
     await show(
         callback,
         texts.mesbak_buddies(display_rows, queued),
-        keyboards.mesbak_buddy_list_kb(display_rows, queued, random_matched),
+        keyboards.mesbak_buddy_list_kb(display_rows, queued),
     )
 
 
@@ -167,10 +166,6 @@ async def on_random_buddy_join(callback: CallbackQuery, session: AsyncSession, b
         await callback.answer(texts.MESBAK_RANDOM_WAITING)
         await _render_buddy_list(callback, session, user.id)
         return
-    if status == "already":
-        await callback.answer(texts.MESBAK_RANDOM_ALREADY_MATCHED, show_alert=True)
-        await _render_buddy_list(callback, session, user.id)
-        return
     if status != "matched" or partner_id is None:
         await callback.answer(texts.MESBAK_RANDOM_INACTIVE, show_alert=True)
         return
@@ -263,6 +258,57 @@ async def on_buddy_open(callback: CallbackQuery, session: AsyncSession) -> None:
         ),
         keyboards.mesbak_buddy_pair_kb(pair.id),
     )
+
+
+@router.callback_query(F.data == "mesbak:buddy:nudge:all")
+async def on_buddy_nudge_all(
+    callback: CallbackQuery, session: AsyncSession, bot: Bot
+) -> None:
+    active = await _active_user(session, callback.from_user)
+    if active is None:
+        await callback.answer(texts.mesbak_INACTIVE, show_alert=True)
+        return
+    user, today = active
+    buddies = await mesbak_repo.buddy_users(session, user.id)
+    completed = await mesbak_repo.users_completed_on_days(
+        session, [(buddy.id, local_today(buddy.timezone)) for _pair, buddy in buddies]
+    )
+    ready: list[int] = []
+    already_done = 0
+    already_nudged = 0
+    unavailable = 0
+    for pair, buddy in buddies:
+        if buddy.id in completed:
+            already_done += 1
+            continue
+        status, target_id, _pair_type = await mesbak_repo.claim_buddy_nudge(
+            session, user.id, pair.id, today
+        )
+        if status == "ok" and target_id is not None:
+            ready.append(target_id)
+        elif status == "limit":
+            already_nudged += 1
+        else:
+            unavailable += 1
+    await session.commit()
+    await callback.answer()
+
+    sent = 0
+    failed = unavailable
+    for target_id in ready:
+        try:
+            await bot.send_message(
+                target_id, texts.mesbak_buddy_nudge(user.display_name)
+            )
+            sent += 1
+        except TelegramAPIError:
+            log.info("mesbak bulk nudge to %s failed", target_id)
+            failed += 1
+
+    if isinstance(callback.message, Message):
+        await callback.message.answer(
+            texts.mesbak_buddy_nudge_summary(sent, already_done, already_nudged, failed)
+        )
 
 
 @router.callback_query(F.data.startswith("mesbak:buddy:nudge:"))
