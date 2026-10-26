@@ -73,12 +73,26 @@ RISK_ALERT = (
 )
 BUDDY_INTRO = (
     "🤝 <b>رفیق مطالعه</b>\n\n"
-    "با یه رفیق جفت می‌شی و به همدیگه تلنگر ملایم می‌زنید که امروز بخونید.\n\n"
+    "می‌تونی دوست خودت رو دعوت کنی یا برای پیدا کردن رفیق ناشناس وارد صف بشی.\n"
+    "با هم به همدیگه تلنگر ملایم می‌زنید که امروز بخونید.\n\n"
     "• فقط نام نمایشی‌ات برای رفیقت دیده می‌شه\n"
     "• هر وقت بخوای می‌تونی هم‌یاری رو تمام کنی\n"
     "• تلنگر حداکثر روزی یک‌باره\n\n"
     "آماده‌ای؟"
 )
+BUDDY_INVITE_READY = (
+    "لینک یک‌بارمصرفت آماده است؛ تا ۷ روز اعتبار دارد:\n<code>{link}</code>\n\n"
+    "فقط کسی که این لینک را برایش می‌فرستی می‌تواند رفیقت شود."
+)
+BUDDY_INVITE_ACCEPTED = "🤝 دعوت {name} رو پذیرفتی؛ از «رفیق مطالعه» می‌تونی وضعیتش رو ببینی."
+BUDDY_INVITE_PEER_ACCEPTED = "🤝 {name} دعوتت رو پذیرفت و رفیق مطالعه‌ات شد."
+BUDDY_INVITE_ALREADY_FRIENDS = "شما از قبل رفیق مطالعهٔ هم هستین 🤝"
+BUDDY_INVITE_BUSY = (
+    "برای پذیرفتن دعوت، هیچ‌کدام نباید توی صف ناشناس باشین. "
+    "لینک هنوز مصرف نشده و بعداً می‌تونی دوباره امتحان کنی."
+)
+BUDDY_INVITE_UNAVAILABLE = "این لینک معتبر نیست، منقضی شده یا قبلاً استفاده شده."
+BUDDY_ALREADY_QUEUED = "اول از صف ناشناس خارج شو، بعد می‌تونی لینک دعوت بسازی."
 BUDDY_WAITING = (
     "دنبال رفیق می‌گردیم... 🔍\n"
     "به‌محض پیدا شدن، خبرت می‌کنم. این صفحه رو می‌تونی هر وقت ببینی."
@@ -89,6 +103,8 @@ BUDDY_MATCHED_PEER = "🤝 رفیق جدید پیدا شد: <b>{name}</b>! از 
 NUDGE_PUSH = "🔔 <b>{name}</b> بهت تلنگر زد: یه گوشه بشین و یه کم بخون!"
 BUDDY_NUDGE_SENT = "تلنگر رفت 🔔"
 BUDDY_NUDGE_LIMIT = "امروز یه تلنگر زدی؛ فردا دوباره 🙂"
+BUDDY_ALREADY_READ = "رفیقت امروز مطالعه‌ش رو ثبت کرده؛ تلنگر براش نفرستادم ✅"
+BUDDY_NUDGE_PROMPT = "امروز خوندی 👏 دوست داری به رفیق‌هایی که هنوز نخوندن تلنگر بزنی؟"
 BUDDY_ENDED = (
     "هم‌یاری تمام شد. بدون دلخوری؛ هر وقت خواستی دوباره می‌تونی رفیق پیدا کنی 👋"
 )
@@ -107,10 +123,43 @@ def buddy_screen(name: str, streak: int, read_today: bool) -> str:
     )
 
 
+def buddy_overview(names: list[str], queued: bool) -> str:
+    if names:
+        friends = "\n".join(
+            f"{fa(index)}. <b>{buddy_name(name)}</b>" for index, name in enumerate(names, 1)
+        )
+        text = f"🤝 <b>رفیق‌های مطالعه‌ات</b>\n\n{friends}"
+    else:
+        text = "🤝 هنوز رفیق مطالعه‌ای نداری."
+    if queued:
+        text += "\n\n🔍 توی صف پیدا کردن رفیق ناشناس هستی."
+    return text
+
+
 def buddy_name(display_name: str | None) -> str:
     from html import escape
 
     return escape((display_name or "کتاب‌خوان").replace("\n", " ").strip() or "کتاب‌خوان")
+
+
+def buddy_button_name(display_name: str | None) -> str:
+    name = (display_name or "کتاب‌خوان").replace("\n", " ").strip() or "کتاب‌خوان"
+    return name[:40]
+
+
+def buddy_nudge_summary(sent: int, already_read: int, already_nudged: int, failed: int) -> str:
+    if not sent and not already_read and not already_nudged and not failed:
+        return "امروز موردی برای تلنگر نبود."
+    parts = []
+    if sent:
+        parts.append(f"به {fa(sent)} نفر تلنگر رفت")
+    if already_read:
+        parts.append(f"{fa(already_read)} نفر امروز خوانده بودند")
+    if already_nudged:
+        parts.append(f"به {fa(already_nudged)} نفر امروز قبلاً تلنگر زده بودی")
+    if failed:
+        parts.append(f"ارسال به {fa(failed)} نفر انجام نشد")
+    return "؛ ".join(parts) + "."
 
 
 def home(streak: int, best: int, strip: str, read_today: bool, freeze_balance: int) -> str:

@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +29,20 @@ async def has_read(session: AsyncSession, user_id: int, day: date) -> bool:
         select(ReadingLog.user_id).where(ReadingLog.user_id == user_id, ReadingLog.day == day)
     )
     return found is not None
+
+
+async def users_read_on_days(
+    session: AsyncSession, user_days: list[tuple[int, date]]
+) -> set[int]:
+    """Return users who have a reading row for their own local day."""
+    if not user_days:
+        return set()
+    result = await session.scalars(
+        select(ReadingLog.user_id).where(
+            tuple_(ReadingLog.user_id, ReadingLog.day).in_(user_days)
+        )
+    )
+    return set(result)
 
 
 async def last_read_day(session: AsyncSession, user_id: int) -> date | None:

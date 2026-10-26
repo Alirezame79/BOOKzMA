@@ -6,7 +6,7 @@ This guide records behavior verified in `src/BOOKzMA/`, migrations, and configur
 
 `bot.py` registers `/start`, `/reminders`, `/timezone`, `/profile`, and `/support` for all users. Configured admins also receive `/admin` in their chat command scope. The persistent Persian reply keyboard includes `🤝 رفیق مطالعه` for the opt-in study-buddy screen; contextual flows continue to use inline keyboards. Admin entry points are checked against `ADMIN_TELEGRAM_IDS` in handlers, independently of menu visibility.
 
-`/start` branches by onboarding state (`users.onboarded_at`, U-01): a user who has not completed the intro flow gets a short welcome message with a first-reminder choice instead of the home screen, and the same flow starts after passing the channel gate via `check_join`. Existing users were backfilled with `onboarded_at` in migration `0007`, so only new accounts see the intro. A returning reader — someone with reading history whose last local reading day is more than seven days old (U-02) — receives a blame-free welcome-back line before the home screen; this fires only on `/start`.
+`/start` branches by onboarding state (`users.onboarded_at`, U-01): a user who has not completed the intro flow gets a short welcome message with a first-reminder choice instead of the home screen, and the same flow starts after passing the channel gate via `check_join`. Existing users were backfilled with `onboarded_at` in migration `0007`, so only new accounts see the intro. A returning reader — someone with reading history whose last local reading day is more than seven days old (U-02) — receives a blame-free welcome-back line before the home screen; this fires only on `/start`. A `buddy_<token>` start payload accepts an unexpired friend invitation before the usual onboarding/home flow continues.
 
 Callback payloads implemented in handlers/keyboards:
 
@@ -16,7 +16,7 @@ Callback payloads implemented in handlers/keyboards:
 | `onb:skip` | Onboarding: skip the first reminder and mark the intro complete |
 | `home` | Clear FSM state and render home |
 | `check_join` | Recheck required channel membership |
-| `read` | Record today's reading idempotently |
+| `read` | Record today's reading idempotently; after a new reading, offer an optional nudge only when an eligible buddy has not read today |
 | `weekly` | Show seven-day summary |
 | `rem` | Open reminder management |
 | `rem_add:<HHMM>` | Add one of the configured preset times |
@@ -32,10 +32,15 @@ Callback payloads implemented in handlers/keyboards:
 | `account_del:go` | Final confirmation: delete the account and all of its data |
 | `account_del:cancel` | Cancel the deletion flow at any step and return to the profile |
 | `account_restore` | Explicit re-registration: clear the deletion tombstone and start fresh |
+| `buddy:invite` | Create a seven-day, one-time link for a known friend; neither user may be in the anonymous queue when pairing |
 | `buddy:join` | Join the study-buddy FIFO queue and match with the oldest waiting user inside a locked transaction |
 | `buddy:leave` | Leave the buddy queue |
-| `buddy:nudge` | Send the buddy a nudge; capped at one per pair per local day |
-| `buddy:end` | End the buddy pair; both users may rejoin the queue |
+| `buddy:list` | Return to the list of the user's active study buddies |
+| `buddy:open:<pair_id>` | Open a pair owned by the current user |
+| `buddy:nudge:all` | Nudge all active buddies who have not read today and have not already been nudged today; show sent/skipped counts |
+| `buddy:nudge:dismiss` | Dismiss the optional post-reading nudge prompt |
+| `buddy:nudge:<pair_id>` | Send that buddy a nudge; capped at one per pair per local day |
+| `buddy:end:<pair_id>` | End that pair; other buddy relationships remain active |
 | `admin:stats` | Show admin analytics; server-side admin check required |
 | `admin:broadcast` | Start a text campaign draft; server-side admin check required |
 | `broadcast:start:<id>` | Confirm an owned campaign |
@@ -76,7 +81,8 @@ The existing FastAPI app is in `api.py`; the container runs it through Uvicorn. 
 | `streak_alerts` | Daily dedup for streak-at-risk alerts; composite `(user_id, day)` primary key; cascades with user deletion |
 | `badges` | Awarded achievement badges: integer id, user foreign key, `code` from `services/badges.py`, local awarded day; unique `(user_id, code)`; cascades with user deletion |
 | `buddy_queue` | Study-buddy FIFO waiting list: user primary key, join timestamp; cascades with user deletion |
-| `buddy_pairs` | Buddy pairs with `active`/`ended` status, ended-by metadata, and the last nudge date used for the one-nudge-per-day cap. Partial unique indexes on `user_a`/`user_b` allow at most one active pair per user; rows cascade with user deletion, which silently frees the surviving partner. |
+| `buddy_pairs` | Buddy pairs with `active`/`ended` status, ended-by metadata, and the last nudge date used for the one-nudge-per-day cap. A partial unique index on `(user_a, user_b)` prevents duplicate active relationships while allowing each user to have multiple buddies; rows cascade on user deletion, which silently frees the surviving partner. |
+| `buddy_invites` | One active link per inviter; stores a SHA-256 token hash and seven-day expiry only. Successful pairing consumes the link; existing buddy pairs remain active, users in the anonymous queue do not change state, and account deletion cascades invitations. |
 | `deleted_accounts` | Deletion tombstone: Telegram ID primary key (no foreign key), deletion timestamp, optional reason code from `DELETE_REASONS`; prevents silent re-registration |
 | `broadcast_campaigns` | Admin-owned text campaign and state |
 | `broadcast_deliveries` | Per-campaign/per-user state, attempt count and last error; cascades on user/campaign deletion. Users with permanent Telegram delivery failures are excluded from later broadcasts. |
@@ -89,6 +95,7 @@ Comeback streak (`S-07`): when a displayed streak of three or more days breaks, 
 Streak-at-risk alerts (`S-08`): a third background loop (`services/risk_alert.py`, 60-second interval) messages users at 21:00–21:10 local time when their raw streak is at least two days, the chain is intact through yesterday, and today is unread. Sends are deduplicated per user and local day in `streak_alerts`; a send failure marks the day as alerted anyway, and a downtime window longer than ten minutes skips that day entirely.
 
 Admin analytics count starts recorded from the new deployment onward, UTC daily interactions after successful membership checks, and reading logs separately. The dashboard also reports onboarding completions (`users.onboarded_at`, meaningful from the migration `0007` deploy date onward because existing users were backfilled), streak-at-risk alerts sent in the last seven UTC days, the number of users holding a comeback bonus, total badges awarded with their holder count, and study-buddy pairs by active and total counts. Individual nudges are not tracked beyond each pair's last-nudge date. Streak KPIs use the raw derived streak without the comeback bonus. Badges are awarded only from deployment onward; no retrospective awarding. D1/D7/D30 return rates use only users with enough post-deployment observation time. The displayed seven-day chart is text-based. The dashboard also reports total deleted accounts and deletions in the last seven UTC days from the tombstone table. Broadcast campaigns are text-only, confirmed by an admin, serialized to one active campaign in the single application process, and sent at 5 messages/second with bounded retries and persisted `RetryAfter` deadlines. Delivery state is persisted and inflight deliveries are retried after restart; a crash after Telegram accepts a message but before the DB update can cause a duplicate. Deleting an account mid-campaign or mid-reminder-sweep is safe: updates to deleted rows are no-ops and counts reflect remaining recipients.
+Admin analytics count starts recorded from the new deployment onward, UTC daily interactions after successful membership checks, and reading logs separately. The dashboard also reports onboarding completions (`users.onboarded_at`, meaningful from the migration `0007` deploy date onward because existing users were backfilled), streak-at-risk alerts sent in the last seven UTC days, the number of users holding a comeback bonus, total badges awarded with their holder count, and study-buddy pairs by active and total counts. Individual nudges are not tracked beyond each pair's last-nudge date. Bulk nudges skip buddies who already read today or already received a nudge today, and the user sees summary counts. A successful new personal reading offers an optional bulk nudge only when eligible buddies remain; already-read friends are not prompted or nudged. Streak KPIs use the raw derived streak without the comeback bonus. Badges are awarded only from deployment onward; no retrospective awarding. D1/D7/D30 return rates use only users with enough post-deployment observation time. The displayed seven-day chart is text-based. The dashboard also reports total deleted accounts and deletions in the last seven UTC days from the tombstone table. Broadcast campaigns are text-only, confirmed by an admin, serialized to one active campaign in the single application process, and sent at 5 messages/second with bounded retries and persisted `RetryAfter` deadlines. Delivery state is persisted and inflight deliveries are retried after restart; a crash after Telegram accepts a message but before the DB update can cause a duplicate. Deleting an account mid-campaign or mid-reminder-sweep is safe: updates to deleted rows are no-ops and counts reflect remaining recipients.
 
 Membership checks run for bot messages and callbacks, except the `check_join` callback itself and the `account_restore` callback. Required channels come from `REQUIRED_CHANNELS`, defaulting to an empty list if unset. Only successful checks are cached, per process, for 300 seconds. A membership-check Telegram error is treated as not joined. Every update also performs one indexed tombstone lookup (`deleted_accounts`) before handlers run, so deleted users never reach `get_or_create`.
 
@@ -104,9 +111,10 @@ Membership checks run for bot messages and callbacks, except the `check_join` ca
 | `ADMIN_TELEGRAM_IDS` | `Settings` / bot | Optional comma-separated numeric Telegram IDs; empty means no admins |
 | `GITHUB_URL` | `Settings` / support menu | Optional GitHub project URL; only GitHub repository URLs are shown |
 | `SUPPORT_TELEGRAM_USERNAME` | `Settings` / support menu | Optional Telegram username for private financial-support contact |
+| `TELEGRAM_PROXY` | `Settings` / local `dev_run.py` | Optional aiogram proxy URL; used only by the ignored host launcher, not Docker |
 | `LOG_LEVEL` | `Settings` | Defaults to `INFO`; no logging configuration consuming it was found |
 
-`.env.sample` documents the variables above and an optional placeholder `DATABASE_URL` for local tools. Set the real owner ID and support destinations in the runtime environment; do not commit them. Code supplies a default database URL and Compose overrides it for the bot container.
+`.env.sample` documents the variables above and an optional placeholder `DATABASE_URL` for local tools. Set the real owner ID and support destinations in the runtime environment; do not commit them. Code supplies a default database URL and Compose overrides it for the bot container. The local launcher uses `TELEGRAM_PROXY` to create an aiogram session; `requirements-dev.txt` includes the optional SOCKS support dependency. Docker leaves the session unset and connects directly.
 
 ## Verified Caveats
 

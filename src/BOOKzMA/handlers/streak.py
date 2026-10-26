@@ -1,10 +1,11 @@
 from aiogram import F, Router
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from BOOKzMA import texts
+from BOOKzMA import keyboards, texts
 from BOOKzMA.handlers.common import render_home
 from BOOKzMA.repositories import badges as badges_repo
+from BOOKzMA.repositories import buddy as buddy_repo
 from BOOKzMA.repositories import readings, users
 from BOOKzMA.repositories import streak_freezes
 from BOOKzMA.services.badges import badges_earned
@@ -12,6 +13,7 @@ from BOOKzMA.services.comeback import ComebackState, apply_read
 from BOOKzMA.services.streak import displayed_streak
 from BOOKzMA.services.streak_freezes import on_read as apply_streak_freeze
 from BOOKzMA.utils import local_today
+from BOOKzMA.services.buddy_nudges import classify_nudge_targets
 
 router = Router()
 
@@ -70,3 +72,19 @@ async def on_read(callback: CallbackQuery, session: AsyncSession) -> None:
     )
     await callback.answer(toast)
     await render_home(callback, session, tg)
+    if created:
+        buddies = await buddy_repo.active_buddy_users(session, user.id)
+        if buddies:
+            nudge_day = local_today(user.timezone)
+            read_user_ids = await readings.users_read_on_days(
+                session,
+                [(buddy.id, local_today(buddy.timezone)) for _pair, buddy in buddies],
+            )
+            targets, _already_read, _already_nudged = classify_nudge_targets(
+                buddies, read_user_ids, nudge_day
+            )
+            if targets and isinstance(callback.message, Message):
+                await callback.message.answer(
+                    texts.BUDDY_NUDGE_PROMPT,
+                    reply_markup=keyboards.buddy_nudge_prompt_kb(),
+                )

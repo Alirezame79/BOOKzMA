@@ -9,6 +9,7 @@ from BOOKzMA.config import Settings
 from BOOKzMA.handlers.onboarding import on_pick_time, on_skip, start_onboarding
 from BOOKzMA.handlers.start import cmd_start, is_returning_reader
 from BOOKzMA.repositories import users
+from BOOKzMA.services.buddy_invites import invite_token_hash
 
 SETTINGS = Settings(bot_token=SecretStr("test"))
 
@@ -38,7 +39,10 @@ def _state() -> tuple[SimpleNamespace, dict]:
 
 def _user(onboarded: bool) -> SimpleNamespace:
     return SimpleNamespace(
-        id=777, onboarded_at=None if not onboarded else object(), timezone="Asia/Tehran"
+        id=777,
+        onboarded_at=None if not onboarded else object(),
+        timezone="Asia/Tehran",
+        display_name="علی",
     )
 
 
@@ -182,6 +186,55 @@ def test_cmd_start_routes_new_user_to_onboarding(monkeypatch):
         await cmd_start(message, Session(), state, SETTINGS)
 
         assert sent == ["onboarding"]
+
+    asyncio.run(run_test())
+
+
+def test_cmd_start_accepts_buddy_invite_before_onboarding(monkeypatch):
+    async def run_test():
+        sent = []
+        redeemed = []
+
+        async def fake_start_onboarding(message, session, state):
+            sent.append("onboarding")
+
+        async def fake_get_or_create(*args):
+            return _user(onboarded=False)
+
+        async def fake_redeem(session, token_hash, recipient_id, now):
+            redeemed.append((token_hash, recipient_id))
+            return "accepted", 888
+
+        async def fake_get(model, user_id):
+            return SimpleNamespace(display_name="دوست")
+
+        async def answer(text=None, **kwargs):
+            sent.append(text)
+
+        async def send_message(user_id, text):
+            sent.append((user_id, text))
+
+        monkeypatch.setattr("BOOKzMA.handlers.start.start_onboarding", fake_start_onboarding)
+        monkeypatch.setattr(users, "get_or_create", fake_get_or_create)
+        monkeypatch.setattr("BOOKzMA.handlers.start.buddy_repo.redeem_invite", fake_redeem)
+
+        payload = "buddy_" + "a" * 32
+        message = SimpleNamespace(
+            from_user=SimpleNamespace(id=777, username="ali", full_name="علی"), answer=answer
+        )
+        session = Session()
+        session.get = fake_get
+        state, _recorded = _state()
+        bot = SimpleNamespace(send_message=send_message)
+        command = SimpleNamespace(args=payload)
+        await cmd_start(message, session, state, SETTINGS, command, bot)
+
+        assert redeemed == [(invite_token_hash(payload), 777)]
+        assert sent == [
+            (888, texts.BUDDY_INVITE_PEER_ACCEPTED.format(name="علی")),
+            texts.BUDDY_INVITE_ACCEPTED.format(name="دوست"),
+            "onboarding",
+        ]
 
     asyncio.run(run_test())
 

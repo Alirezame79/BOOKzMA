@@ -3,6 +3,7 @@ import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.base import BaseSession
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramAPIError
 from aiogram.types import BotCommand, BotCommandScopeChat
@@ -27,9 +28,14 @@ COMMANDS = [
 ADMIN_COMMANDS = [*COMMANDS, BotCommand(command="admin", description="مدیریت ربات")]
 
 
-async def start_bot(settings: Settings, session_pool) -> tuple[Bot, list[asyncio.Task]]:
+async def start_bot(
+    settings: Settings,
+    session_pool,
+    bot_session: BaseSession | None = None,
+) -> tuple[Bot, list[asyncio.Task]]:
     bot = Bot(
         token=settings.bot_token.get_secret_value(),
+        session=bot_session,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
 
@@ -50,8 +56,8 @@ async def start_bot(settings: Settings, session_pool) -> tuple[Bot, list[asyncio
             await bot.set_my_commands(
                 ADMIN_COMMANDS, scope=BotCommandScopeChat(chat_id=admin_id)
             )
-    except TelegramAPIError:
-        log.warning("set_my_commands failed, continuing")
-    polling_task = asyncio.create_task(dp.start_polling(bot))
+    except TelegramAPIError as exc:
+        log.warning("set_my_commands failed (%s), continuing", type(exc).__name__)
+    polling_task = asyncio.create_task(dp.start_polling(bot, handle_signals=False))
     log.info("Telegram polling task started")
     return bot, [reminders_task, broadcast_task, risk_alert_task, polling_task]

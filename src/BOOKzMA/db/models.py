@@ -109,21 +109,30 @@ class BuddyQueue(Base):
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class BuddyInvite(Base):
+    """One-time, expiring deep-link invitation to a known study buddy."""
+
+    __tablename__ = "buddy_invites"
+    __table_args__ = (Index("ix_buddy_invites_inviter_id", "inviter_id"),)
+
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    inviter_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE")
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class BuddyPair(Base):
-    """جفت رفیق مطالعه؛ status فقط active/ended و هر کاربر حداکثر یک جفت فعال."""
+    """Buddy relationship; a user may have many active pairs, but each pair is unique."""
 
     __tablename__ = "buddy_pairs"
     __table_args__ = (
         CheckConstraint("status IN ('active', 'ended')", name="ck_buddy_pair_status"),
         CheckConstraint("user_a <> user_b", name="ck_buddy_pair_distinct"),
         Index(
-            "uq_buddy_pair_user_a_active",
+            "uq_buddy_pair_active_pair",
             "user_a",
-            unique=True,
-            postgresql_where=text("status = 'active'"),
-        ),
-        Index(
-            "uq_buddy_pair_user_b_active",
             "user_b",
             unique=True,
             postgresql_where=text("status = 'active'"),

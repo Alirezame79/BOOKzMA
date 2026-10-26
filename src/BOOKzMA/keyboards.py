@@ -4,6 +4,7 @@ from aiogram.types import (
     KeyboardButton,
     ReplyKeyboardMarkup,
 )
+from urllib.parse import quote, urlencode
 
 from BOOKzMA.constants import DELETE_REASONS, MAX_REMINDERS, PRESET_TIMES, TIMEZONES
 
@@ -180,21 +181,64 @@ def onboarding_time_kb() -> InlineKeyboardMarkup:
 
 def buddy_intro_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
-        inline_keyboard=[[_btn("🤝 می‌خوام", "buddy:join")], [_btn("🔙 برگشت", "home")]]
+        inline_keyboard=[
+            [_btn("🔗 دعوت دوست با لینک", "buddy:invite")],
+            [_btn("🔍 پیدا کردن رفیق ناشناس", "buddy:join")],
+            [_btn("🔙 برگشت", "home")],
+        ]
+    )
+
+
+def buddy_invite_kb(deep_link: str) -> InlineKeyboardMarkup:
+    share_url = "https://t.me/share/url?" + urlencode(
+        {"url": deep_link, "text": "بیا رفیق مطالعه‌ام شو 🤝"}, quote_via=quote
+    )
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📨 فرستادن برای دوست", url=share_url)],
+            [_btn("🔙 برگشت", "home")],
+        ]
+    )
+
+
+def buddy_list_kb(buddies: list[tuple[int, str]], queued: bool) -> InlineKeyboardMarkup:
+    rows = []
+    if buddies:
+        rows.append([_btn("🔔 تلنگر به همهٔ نخوانده‌ها", "buddy:nudge:all")])
+    rows.extend([[_btn(f"👤 {name}", f"buddy:open:{pair_id}")] for pair_id, name in buddies])
+    if queued:
+        rows.append([_btn("لغو انتظار ناشناس", "buddy:leave")])
+    else:
+        rows.extend(
+            [
+                [_btn("🔗 دعوت دوست با لینک", "buddy:invite")],
+                [_btn("🔍 پیدا کردن رفیق ناشناس", "buddy:join")],
+            ]
+        )
+    rows.append([_btn("🔙 برگشت", "home")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def buddy_nudge_prompt_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_btn("🔔 تلنگر به همهٔ نخوانده‌ها", "buddy:nudge:all")],
+            [_btn("فعلاً نه", "buddy:nudge:dismiss")],
+        ]
+    )
+
+
+def buddy_pair_kb(pair_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_btn("🔔 تلنگر بزن", f"buddy:nudge:{pair_id}")],
+            [_btn("👋 پایان هم‌یاری", f"buddy:end:{pair_id}")],
+            [_btn("🔙 فهرست رفیق‌ها", "buddy:list")],
+        ]
     )
 
 
 def buddy_waiting_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[[_btn("لغو انتظار", "buddy:leave")], [_btn("🔙 برگشت", "home")]]
-    )
-
-
-def buddy_pair_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [_btn("🔔 تلنگر بزن", "buddy:nudge")],
-            [_btn("👋 پایان هم‌یاری", "buddy:end")],
-            [_btn("🔙 برگشت", "home")],
-        ]
     )

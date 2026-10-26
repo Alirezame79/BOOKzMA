@@ -18,15 +18,15 @@ Each entry records current intent, not a claim that future work is implemented.
 
 ## D-02 — `dev_run.py` Is Owner-Local
 
-**Status:** Owner-provided constraint; file is present, ignored, and untracked. Its contents were not inspected.
+**Status:** Owner-local workflow; the launcher is ignored and intentionally untracked. The owner authorized creating it in the local workspace for this task; its contents remain outside Git.
 
-**Context:** The owner reports using it to configure a local proxy and a separate test bot token while running the database in Compose.
+**Context:** The local launcher runs the shared app on the host with an optional aiogram proxy session and a separate test bot token while PostgreSQL remains in Compose.
 
-**Decision:** Never read, import, commit, rewrite, delete, or replace it. Do not move proxy configuration into `src/`. Changes to entrypoints, settings, dependencies, or deployment must preserve both Docker operation and the owner's local workflow and call out that compatibility check.
+**Decision:** Keep the launcher ignored and local-only; do not inspect or commit it. Keep proxy construction in the launcher, not `src/`. The app accepts an optional injected aiogram session; Docker leaves it unset. Local development uses a host-reachable `DATABASE_URL` and must stop the Compose bot before polling with the same token.
 
 **Why:** The launcher contains machine-specific configuration and is intentionally outside Git.
 
-**Alternatives:** Put proxy logic in the application (rejected); later publish a separately approved `scripts/dev_run.example.py` containing placeholders only.
+**Alternatives:** Put proxy logic in the application (rejected); publish a separately approved placeholder-only example (not requested).
 
 **Revisit when:** The owner explicitly requests a tracked example or changes local setup.
 
@@ -83,6 +83,16 @@ Each entry records current intent, not a claim that future work is implemented.
 **Status:** Implemented.
 
 **Decision:** Record first `/start` and UTC daily interaction from deployment onward. Daily active counts use successful bot updates; reading activity is reported separately. Do not infer historical starts or retention from `users.created_at`.
+
+## D-09 — Known-Friend and Anonymous Study-Buddy Paths
+
+**Status:** Implemented as an opt-in extension of C-06.
+
+**Decision:** Keep anonymous FIFO matching as a separate choice. A user may instead create a random, one-time Telegram deep link, valid for seven days; persist only its SHA-256 hash and consume it after successful pairing or when the recipient is already paired with that inviter. Users may have multiple active buddies, including a mix of invited and anonymous matches. Invitation creation or acceptance never replaces an existing pair or anonymous queue entry. If either user is queued, leave both states and the invitation unchanged. Bulk nudges target only buddies who have not read on their local day and have not already received a nudge that day; after a user's successful new read, show an optional bulk-nudge prompt only if eligible buddies remain. Existing active/total buddy-pair analytics include both match types; do not add a separate invitation or nudge KPI or retain invite history. Share-text spaces use `%20` encoding rather than literal plus signs.
+
+**Why:** The invite path is for a known person, while anonymous matching remains useful and must not be silently conflated with friend selection. Expiry, single use, hashed storage, and no automatic replacement reduce accidental or unwanted pairing. Multiple pairs are allowed without duplicating a relationship or making per-pair nudge/end controls ambiguous.
+
+**Revisit when:** The owner requests reusable/group invitations, invitation analytics, or pairing behavior that replaces an existing buddy.
 
 ## Open Decisions (Owner Only)
 
