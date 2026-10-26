@@ -11,6 +11,7 @@ class DatabaseSettings(BaseSettings):
 
 class Settings(DatabaseSettings):
     bot_token: SecretStr
+    telegram_proxy: SecretStr | None = None
     log_level: str = "INFO"
     web_origins: str = ""
     admin_telegram_ids: str = ""

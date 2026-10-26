@@ -4,15 +4,19 @@ This guide records behavior verified in `src/BOOKzMA/`, migrations, and configur
 
 ## Commands and Bot Interface
 
-`bot.py` registers `/start`, `/reminders`, `/timezone`, `/profile`, and `/support` for all users. Configured admins also receive `/admin` in their chat command scope. `/start` shows the persistent Persian reply keyboard; contextual flows continue to use inline keyboards. Admin entry points are checked against `ADMIN_TELEGRAM_IDS` in handlers, independently of menu visibility.
+`bot.py` registers `/start`, `/reminders`, `/timezone`, `/profile`, `/miswak`, and `/support` for all users. Configured admins also receive `/admin` in their chat command scope. The persistent Persian reply keyboard includes `🤝 رفیق مطالعه` and `🪥 مسباک`; contextual flows continue to use inline keyboards. Admin entry points are checked against `ADMIN_TELEGRAM_IDS` in handlers, independently of menu visibility.
+
+`/start` retains the optional onboarding, returning-reader welcome, and study-buddy invite flow. Its first-run screen has a direct button to the independent miswak section. A `miswakbuddy_<token>` payload accepts a separate miswak buddy invitation. Users can also open the section through `/miswak` or the reply keyboard without completing reading onboarding.
 
 Callback payloads implemented in handlers/keyboards:
 
 | Payload | Behavior |
 | --- | --- |
+| `onb:<HHMM>` | Onboarding: add the chosen preset reminder and mark the intro complete (validated against `PRESET_TIMES`) |
+| `onb:skip` | Onboarding: skip the first reminder and mark the intro complete |
 | `home` | Clear FSM state and render home |
 | `check_join` | Recheck required channel membership |
-| `read` | Record today's reading idempotently |
+| `read` | Record today's reading idempotently; after a new reading, offer an optional nudge only when an eligible buddy has not read today |
 | `weekly` | Show seven-day summary |
 | `rem` | Open reminder management |
 | `rem_add:<HHMM>` | Add one of the configured preset times |
@@ -22,14 +26,34 @@ Callback payloads implemented in handlers/keyboards:
 | `tz_set:<index>` | Set one of the configured timezone choices |
 | `leaderboard:toggle` | Toggle the user's public leaderboard presence |
 | `leaderboard` | Show the current-streak leaderboard (display names only) |
+| `miswak:open` | Open the optional independent miswak section |
+| `miswak:join:<goal>` | Join with a daily goal from 1 to 5 and default reminder times |
+| `miswak:exit` | Leave the section, stop reminders and future cohort delivery, and close social opt-ins |
+| `miswak:done:<YYYYMMDD>:<slot>` | Record one dated occurrence; stale-day and duplicate callbacks are rejected |
+| `miswak:goal:<goal>` | Schedule a new daily goal for the next local day |
+| `miswak:time:<slot>` / `miswak:settime:<slot>:<HHMM>` | View or change one occurrence reminder |
+| `miswak:weekly` / `miswak:monthly` | Show 7-day or 30-day completion and streak reports |
+| `miswak:challenge:start:<7|30>` | Start one personal consecutive-day challenge |
+| `miswak:league` / `miswak:league:toggle` | View or opt in/out of the miswak-only weekly league |
+| `miswak:buddy:invite` / `miswak:buddy:nudge:<id>` / `miswak:buddy:end:<id>` | Invite, nudge, or end a separate miswak buddy pair |
 | `account_del:start` | Start the account-deletion wizard from the profile |
 | `account_del:why` | Show the deletion-reason choices |
 | `account_del:reason:<index>` | Record a reason (validated against `DELETE_REASONS`) and ask for the typed confirmation word |
 | `account_del:go` | Final confirmation: delete the account and all of its data |
 | `account_del:cancel` | Cancel the deletion flow at any step and return to the profile |
 | `account_restore` | Explicit re-registration: clear the deletion tombstone and start fresh |
+| `buddy:invite` | Create a seven-day, one-time link for a known friend; neither user may be in the anonymous queue when pairing |
+| `buddy:join` | Join the study-buddy FIFO queue and match with the oldest waiting user inside a locked transaction |
+| `buddy:leave` | Leave the buddy queue |
+| `buddy:list` | Return to the list of the user's active study buddies |
+| `buddy:open:<pair_id>` | Open a pair owned by the current user |
+| `buddy:nudge:all` | Nudge all active buddies who have not read today and have not already been nudged today; show sent/skipped counts |
+| `buddy:nudge:dismiss` | Dismiss the optional post-reading nudge prompt |
+| `buddy:nudge:<pair_id>` | Send that buddy a nudge; capped at one per pair per local day |
+| `buddy:end:<pair_id>` | End that pair; other buddy relationships remain active |
 | `admin:stats` | Show admin analytics; server-side admin check required |
-| `admin:broadcast` | Start a text campaign draft; server-side admin check required |
+| `admin:broadcast` | Start a text or media campaign draft; server-side admin check required |
+| `broadcast:audience:<all|miswak>` | Select all reachable users or active miswak members for a campaign |
 | `admin:backup` | Open the backup menu (latest backup, on-demand backup, restore); server-side admin check required |
 | `admin:backup_now` | Run an on-demand `pg_dump` through `services/backup.py`; server-side admin check required |
 | `admin:backup_restore` | List local backup files; server-side admin check required |
@@ -39,7 +63,7 @@ Callback payloads implemented in handlers/keyboards:
 | `broadcast:status:<id>` | Show counts for an owned campaign |
 | `broadcast:cancel:<id>` | Cancel an owned campaign |
 
-FSM states are `handlers.reminders.AddTime.waiting`, `handlers.admin.NewBroadcast.waiting_for_text`, `handlers.admin.BackupRestore.waiting_for_confirm`, and `handlers.account.DeleteAccount.waiting_word`; FSM storage remains in-memory. Arbitrary reminder times are parsed as 24-hour `HH[:MM]` with Persian or Arabic digits accepted.
+FSM states are `handlers.reminders.AddTime.waiting`, `handlers.miswak.SetReminderTime.waiting`, `handlers.admin.NewBroadcast.waiting_for_content/waiting_for_link`, `handlers.admin.BackupRestore.waiting_for_confirm`, and `handlers.account.DeleteAccount.waiting_word`; FSM storage remains in-memory. The existing onboarding flow remains stateless callback-driven and needs no FSM state. Arbitrary reminder times are parsed as 24-hour `HH[:MM]` with Persian or Arabic digits accepted.
 
 Account deletion (`N-04`) is a four-step wizard started from the profile: a warning screen, a deletion-reason choice, a typed confirmation word (`حذف`), and a final button. Deletion removes the `users` row (cascading to all related tables) and inserts a `deleted_accounts` tombstone in the same transaction. The membership middleware intercepts tombstoned users before handlers run — they get a neutral start prompt (no mention of a previous account) and no activity or start is recorded for them; the `account_restore` callback clears the tombstone. The API exposes the same behavior through `DELETE /api/v1/me`, and authenticated requests for tombstoned users return 401 until they re-register via the bot.
 
@@ -68,18 +92,36 @@ The existing FastAPI app is in `api.py`; the container runs it through Uvicorn. 
 
 | Table | Current shape and invariant |
 | --- | --- |
-| `users` | Telegram ID primary key; optional display name/username; timezone defaults to `Asia/Tehran`; first-start time; leaderboard opt-out and permanent broadcast-unavailable flags |
+| `users` | Telegram ID primary key; optional display name/username; timezone defaults to `Asia/Tehran`; first-start and onboarding-completion timestamps; comeback state (`broken_streak_days`, `comeback_bonus_days`, `comeback_base_day`); leaderboard opt-out and permanent broadcast-unavailable flags |
 | `reading_logs` | `(user_id, day)` composite primary key; user foreign key cascades on delete |
 | `streak_freezes` | Earned/used freeze events, separate from reading logs; unique `(user_id, kind, day)` |
 | `activity_days` | One row per user and UTC date; cascades with user deletion |
+| `streak_alerts` | Daily dedup for streak-at-risk alerts; composite `(user_id, day)` primary key; cascades with user deletion |
+| `badges` | Awarded achievement badges: integer id, user foreign key, `code` from `services/badges.py`, local awarded day; unique `(user_id, code)`; cascades with user deletion |
+| `buddy_queue` | Study-buddy FIFO waiting list: user primary key, join timestamp; cascades with user deletion |
+| `buddy_pairs` | Buddy pairs with `active`/`ended` status, ended-by metadata, and the last nudge date used for the one-nudge-per-day cap. A partial unique index on `(user_a, user_b)` prevents duplicate active relationships while allowing each user to have multiple buddies; rows cascade on user deletion, which silently frees the surviving partner. |
+| `buddy_invites` | One active link per inviter; stores a SHA-256 token hash and seven-day expiry only. Successful pairing consumes the link; existing buddy pairs remain active, users in the anonymous queue do not change state, and account deletion cascades invitations. |
 | `deleted_accounts` | Deletion tombstone: Telegram ID primary key (no foreign key), deletion timestamp, optional reason code from `DELETE_REASONS`; prevents silent re-registration |
-| `broadcast_campaigns` | Admin-owned text campaign and state |
+| `broadcast_campaigns` | Admin-owned campaign with audience, optional photo/video and HTTPS button, and delivery state |
 | `broadcast_deliveries` | Per-campaign/per-user state, attempt count and last error; cascades on user/campaign deletion. Users with permanent Telegram delivery failures are excluded from later broadcasts. |
 | `reminders` | Integer primary key; user foreign key; time; last-sent date; retry date/count/deadline; unique `(user_id, remind_at)` |
+| `miswak_profiles` | One opt-in profile per user; active flag, goal 1–5, next-day goal change, and separate league opt-in |
+| `miswak_entries` | `(user_id, local day, occurrence slot)` primary key; goal snapshot; unique slot writes make duplicate callbacks idempotent |
+| `miswak_reminders` | Up to five independent local times, one per goal slot; unique per user/time with separate send/retry state |
+| `miswak_badges` | Independent 7/30/100-day streak badges; unique `(user_id, code)` |
+| `miswak_challenges` | One active personal 7- or 30-day consecutive completion challenge per user; canceled after a missed, closed local day |
+| `miswak_buddy_invites` / `miswak_buddy_pairs` | Hashed, one-time, seven-day invite tokens; independent opt-in pairs and once-per-day nudges |
 
-Streak is computed from read dates plus explicitly used freeze dates; freeze days are not reported as reading. Users start with zero freezes, earn one per seven consecutive real reading days, and hold at most two. One missed day is automatically protected when reading resumes the next day; freezes cannot cover consecutive missed days. Weekly summaries cover today and the preceding six local dates. Reminders are capped at five per user; presets are `08:00`, `13:00`, `18:00`, `21:00`, and `23:00`. The scheduler scans every 30 seconds, skips sends over ten minutes late, and caps retries at three per reminder per local day.
+Reading streak is computed from read dates plus explicitly used freeze dates; freeze days are not reported as reading. Users start with zero freezes, earn one per seven consecutive real reading days, and hold at most two. One missed day is automatically protected when reading resumes the next day; freezes cannot cover consecutive missed days. Weekly summaries cover today and the preceding six local dates. Reading reminders are capped at five per user; presets are `08:00`, `13:00`, `18:00`, `21:00`, and `23:00`.
 
-Admin analytics count starts recorded from the new deployment onward, UTC daily interactions after successful membership checks, and reading logs separately. D1/D7/D30 return rates use only users with enough post-deployment observation time. The displayed seven-day chart is text-based. The dashboard also reports total deleted accounts and deletions in the last seven UTC days from the tombstone table. Broadcast campaigns are text-only, confirmed by an admin, serialized to one active campaign in the single application process, and sent at 5 messages/second with bounded retries and persisted `RetryAfter` deadlines. Delivery state is persisted and inflight deliveries are retried after restart; a crash after Telegram accepts a message but before the DB update can cause a duplicate. Deleting an account mid-campaign or mid-reminder-sweep is safe: updates to deleted rows are no-ops and counts reflect remaining recipients.
+Comeback streak (`S-07`): when a displayed streak of three or more days breaks, the next reading day opens a comeback window on `users` (`broken_streak_days`, `comeback_base_day`, `comeback_bonus_days`). Three consecutive reading days award half of the broken streak (floor, capped at 30) as a bonus. Surfaces that display the streak (home, profile, weekly summary, leaderboard, reminder pushes, read toast) show the raw streak plus the bonus via `displayed_streak`; the bonus becomes inert once the chain that earned it breaks and never affects `longest_streak`, freeze earning, or admin analytics (which use the raw streak). A frozen day covering the break keeps the streak alive, so no comeback window opens.
+
+Streak-at-risk alerts (`S-08`): a third background loop (`services/risk_alert.py`, 60-second interval) messages users at 21:00–21:10 local time when their raw streak is at least two days, the chain is intact through yesterday, and today is unread. Sends are deduplicated per user and local day in `streak_alerts`; a send failure marks the day as alerted anyway, and a downtime window longer than ten minutes skips that day entirely.
+
+Admin analytics count starts and UTC daily interactions from deployment onward, and report reading logs separately. A user who enters through `/miswak` without `/start` is also recorded as a starter. The dashboard also reports onboarding completions, streak-at-risk alerts, comeback users, badge holders, active/total study-buddy pairs, deleted accounts, and D1/D7/D30 return rates for sufficiently observed cohorts. Study-buddy nudges skip friends who have read or already received a nudge that day; eligible readers may see an optional prompt after reading. Streak KPIs use raw reading streaks. Broadcast campaigns snapshot recipients, require admin confirmation, allow one active campaign, send at 5 messages per second with bounded retries, and resume after restart. The miswak cohort can receive text or one photo/video with an optional HTTPS button; membership is checked again before each queued delivery. A crash after Telegram accepts a message but before the database update may cause one duplicate.
+Miswak is an optional, separate habit. Active users choose 1–5 daily occurrences; defaults are `06:30`, `13:00`, `16:00`, `19:00`, and `22:00`. For goals smaller than five, the latest N times are selected (one occurrence defaults to `22:00`; two default to `19:00` and `22:00`); all are editable. Each occurrence is recorded once per local date and the day counts toward the streak only when its goal is complete. Goal changes take effect the next local day. Current streak remains alive through today if yesterday was complete, but a missed full-goal day breaks it; no reading freeze or comeback bonus applies. Its reminder loop scans every 30 seconds, skips sends over ten minutes late and after the goal is complete, and caps retries at three per slot/day. At spring DST gaps, a nonexistent wall-clock time is skipped; an ambiguous fall-back time is sent once. A challenge is canceled after any previous local day closes without a completed goal; today remains open until its day ends.
+
+Leaving the miswak section disables reminders, clears league consent, ends active challenges and buddy pairs, removes outgoing invites, and removes the user from future education campaign deliveries while retaining habit history; account deletion cascades all feature data. Active members are told they can receive admin education messages; there is no separate education opt-out. Campaigns support text or one photo/video, optional HTTPS button, preview/recipient count, and confirmation. Audience membership is snapshotted at draft time and rechecked immediately before sending. The dashboard reports only the current active cohort's 7/30-day activity and completion rate. The 7/30-day challenges, weekly league, and one-time buddy links are opt-in and isolated from reading social data.
 
 Membership checks run for bot messages and callbacks, except the `check_join` callback itself and the `account_restore` callback. Required channels come from `REQUIRED_CHANNELS`, defaulting to an empty list if unset. Only successful checks are cached, per process, for 300 seconds. A membership-check Telegram error is treated as not joined. Every update also performs one indexed tombstone lookup (`deleted_accounts`) before handlers run, so deleted users never reach `get_or_create`.
 
@@ -97,6 +139,7 @@ A per-process rate-limit middleware (`middlewares/rate_limit.py`, decision D-10)
 | `ADMIN_TELEGRAM_IDS` | `Settings` / bot | Optional comma-separated numeric Telegram IDs; empty means no admins |
 | `GITHUB_URL` | `Settings` / support menu | Optional GitHub project URL; only GitHub repository URLs are shown |
 | `SUPPORT_TELEGRAM_USERNAME` | `Settings` / support menu | Optional Telegram username for private financial-support contact |
+| `TELEGRAM_PROXY` | `Settings` / local `dev_run.py` | Optional aiogram proxy URL; used only by the ignored host launcher, not Docker |
 | `BOOKZMA_BACKUP_DIR` | Compose | Required by Compose; host folder bind-mounted into the bot at `/backups`; must be outside the repository |
 | `BACKUP_DIR` | `Settings` / backup service | Backup folder inside the container; defaults to `/backups` |
 | `BACKUP_KEEP_LOCAL` | `Settings` / backup service | Number of newest local backups to keep after rotation; defaults to 1 |
@@ -104,7 +147,7 @@ A per-process rate-limit middleware (`middlewares/rate_limit.py`, decision D-10)
 | `RATE_LIMIT_WINDOW_SECONDS` | `Settings` / rate-limit middleware | Optional; fixed window length in seconds; defaults to 10 |
 | `LOG_LEVEL` | `Settings` | Defaults to `INFO`; no logging configuration consuming it was found |
 
-`.env.sample` documents the variables above and an optional placeholder `DATABASE_URL` for local tools. Set the real owner ID and support destinations in the runtime environment; do not commit them. Code supplies a default database URL and Compose overrides it for the bot container.
+`.env.sample` documents the variables above and an optional placeholder `DATABASE_URL` for local tools. Set the real owner ID and support destinations in the runtime environment; do not commit them. Code supplies a default database URL and Compose overrides it for the bot container. The local launcher uses `TELEGRAM_PROXY` to create an aiogram session; `requirements-dev.txt` includes the optional SOCKS support dependency. Docker leaves the session unset and connects directly.
 
 ## Verified Caveats
 
