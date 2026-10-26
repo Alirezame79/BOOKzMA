@@ -40,6 +40,7 @@ def menu_kb(is_admin: bool = False) -> ReplyKeyboardMarkup:
     rows = [
         [KeyboardButton(text="🏠 خانه"), KeyboardButton(text="👤 پروفایل")],
         [KeyboardButton(text="⏰ یادآورها"), KeyboardButton(text="🌍 منطقه زمانی")],
+        [KeyboardButton(text="🤝 رفیق مطالعه")],
         [KeyboardButton(text="💚 حمایت از پروژه")],
     ]
     if is_admin:
@@ -175,3 +176,25 @@ def onboarding_time_kb() -> InlineKeyboardMarkup:
     rows = _chunk(presets, 2)
     rows.append([_btn("فعلاً نه", "onb:skip")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def buddy_intro_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[_btn("🤝 می‌خوام", "buddy:join")], [_btn("🔙 برگشت", "home")]]
+    )
+
+
+def buddy_waiting_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[_btn("لغو انتظار", "buddy:leave")], [_btn("🔙 برگشت", "home")]]
+    )
+
+
+def buddy_pair_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_btn("🔔 تلنگر بزن", "buddy:nudge")],
+            [_btn("👋 پایان هم‌یاری", "buddy:end")],
+            [_btn("🔙 برگشت", "home")],
+        ]
+    )

@@ -71,6 +71,46 @@ RISK_ALERT = (
     "⚠️ <b>استریکت در خطره!</b>\n"
     "امروز هنوز نخوندی. همین یه مطالعهٔ کوچیک هم روزت رو نجات می‌ده."
 )
+BUDDY_INTRO = (
+    "🤝 <b>رفیق مطالعه</b>\n\n"
+    "با یه رفیق جفت می‌شی و به همدیگه تلنگر ملایم می‌زنید که امروز بخونید.\n\n"
+    "• فقط نام نمایشی‌ات برای رفیقت دیده می‌شه\n"
+    "• هر وقت بخوای می‌تونی هم‌یاری رو تمام کنی\n"
+    "• تلنگر حداکثر روزی یک‌باره\n\n"
+    "آماده‌ای؟"
+)
+BUDDY_WAITING = (
+    "دنبال رفیق می‌گردیم... 🔍\n"
+    "به‌محض پیدا شدن، خبرت می‌کنم. این صفحه رو می‌تونی هر وقت ببینی."
+)
+BUDDY_LEFT_QUEUE = "انتظار لغو شد."
+BUDDY_MATCHED_SELF = "🤝 رفیقت پیدا شد: <b>{name}</b>! از «🤝 رفیق مطالعه» وضعیتش رو دنبال کن."
+BUDDY_MATCHED_PEER = "🤝 رفیق جدید پیدا شد: <b>{name}</b>! از «🤝 رفیق مطالعه» شروع کن."
+NUDGE_PUSH = "🔔 <b>{name}</b> بهت تلنگر زد: یه گوشه بشین و یه کم بخون!"
+BUDDY_NUDGE_SENT = "تلنگر رفت 🔔"
+BUDDY_NUDGE_LIMIT = "امروز یه تلنگر زدی؛ فردا دوباره 🙂"
+BUDDY_ENDED = (
+    "هم‌یاری تمام شد. بدون دلخوری؛ هر وقت خواستی دوباره می‌تونی رفیق پیدا کنی 👋"
+)
+
+
+def buddy_screen(name: str, streak: int, read_today: bool) -> str:
+    if read_today:
+        status = "✅ امروزش رو ثبت کرده"
+    else:
+        status = "⏳ هنوز امروز نخونده"
+    return (
+        f"🤝 <b>رفیقت: {name}</b>\n\n"
+        f"🔥 استریک: {fa(streak)} روز\n"
+        f"{status}\n\n"
+        "اگه دیر کرد، یه تلنگر دوستانه بزن."
+    )
+
+
+def buddy_name(display_name: str | None) -> str:
+    from html import escape
+
+    return escape((display_name or "کتاب‌خوان").replace("\n", " ").strip() or "کتاب‌خوان")
 
 
 def home(streak: int, best: int, strip: str, read_today: bool, freeze_balance: int) -> str:
@@ -236,6 +276,8 @@ def admin_dashboard(stats: dict[str, int], series: list[tuple[object, int]]) -> 
         f"⚠️ هشدار «استریک در خطر» در ۷ روز: {fa(stats['streak_alerts_7d'])}\n"
         f"🔁 کاربران با پاداش comeback: {fa(stats['comeback_users'])}\n"
         f"🎖 نشان‌ها: {fa(stats['badges_total'])} اهدا به {fa(stats['badge_holders'])} نفر\n"
+        f"🤝 جفت‌های رفیق مطالعه: {fa(stats['buddy_pairs_active'])} فعال · "
+        f"{fa(stats['buddy_pairs_total'])} کل\n"
         f"🗑 حساب حذف‌شده: {fa(stats['accounts_deleted'])} · ۷ روز اخیر: "
         f"{fa(stats['deletions_7d'])}\n\n"
         "<b>فعالیت ۷ روز اخیر</b>\n" + "\n".join(chart)

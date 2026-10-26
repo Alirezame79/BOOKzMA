@@ -12,6 +12,7 @@ from sqlalchemy import (
     Time,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -95,6 +96,48 @@ class Badge(Base):
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
     code: Mapped[str] = mapped_column(String(32))
     awarded_day: Mapped[date] = mapped_column(Date)
+
+
+class BuddyQueue(Base):
+    """صف انتظار جفت‌شدن رفیق مطالعه (C-06)."""
+
+    __tablename__ = "buddy_queue"
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class BuddyPair(Base):
+    """جفت رفیق مطالعه؛ status فقط active/ended و هر کاربر حداکثر یک جفت فعال."""
+
+    __tablename__ = "buddy_pairs"
+    __table_args__ = (
+        CheckConstraint("status IN ('active', 'ended')", name="ck_buddy_pair_status"),
+        CheckConstraint("user_a <> user_b", name="ck_buddy_pair_distinct"),
+        Index(
+            "uq_buddy_pair_user_a_active",
+            "user_a",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+        ),
+        Index(
+            "uq_buddy_pair_user_b_active",
+            "user_b",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_a: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
+    user_b: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
+    status: Mapped[str] = mapped_column(String(16), default="active", server_default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ended_by: Mapped[int | None] = mapped_column(BigInteger)
+    last_nudge_on: Mapped[date | None] = mapped_column(Date)
 
 
 class BroadcastCampaign(Base):

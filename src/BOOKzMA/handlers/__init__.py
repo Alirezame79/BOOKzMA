@@ -3,6 +3,7 @@ from aiogram import Router
 from BOOKzMA.handlers import (
     account,
     admin,
+    buddy,
     onboarding,
     profile,
     reminders,
@@ -21,6 +22,7 @@ def get_router() -> Router:
         onboarding.router,
         admin.router,
         account.router,
+        buddy.router,
         profile.router,
         streak.router,
         reminders.router,
