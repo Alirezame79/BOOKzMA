@@ -85,6 +85,18 @@ class StreakAlert(Base):
     day: Mapped[date] = mapped_column(Date, primary_key=True)
 
 
+class Badge(Base):
+    """نشان دستاورد (G-01)؛ اهدا ایدمپوتنت با unique (user_id, code)."""
+
+    __tablename__ = "badges"
+    __table_args__ = (UniqueConstraint("user_id", "code", name="uq_badge_user_code"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
+    code: Mapped[str] = mapped_column(String(32))
+    awarded_day: Mapped[date] = mapped_column(Date)
+
+
 class BroadcastCampaign(Base):
     __tablename__ = "broadcast_campaigns"
     __table_args__ = (

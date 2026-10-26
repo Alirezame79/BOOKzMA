@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from BOOKzMA import keyboards, texts
 from BOOKzMA.config import Settings
 from BOOKzMA.handlers.common import show
+from BOOKzMA.repositories import badges as badges_repo
 from BOOKzMA.repositories import readings, streak_freezes, users
 from BOOKzMA.services.streak import displayed_streak, longest_streak
 from BOOKzMA.utils import local_today
@@ -36,6 +37,7 @@ async def render_profile(event: Message | CallbackQuery, session: AsyncSession) 
             longest_streak(days, frozen_days),
             await streak_freezes.balance(session, user.id),
             user.leaderboard_opt_out,
+            await badges_repo.list_for_user(session, user.id),
         ),
         keyboards.profile_kb(user.leaderboard_opt_out),
     )

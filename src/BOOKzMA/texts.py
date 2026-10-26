@@ -1,4 +1,5 @@
 from BOOKzMA.constants import MAX_REMINDERS, MILESTONES
+from BOOKzMA.services.badges import badge_label
 from BOOKzMA.utils import fa
 
 MAX_STREAK_FREEZES = 2
@@ -108,6 +109,13 @@ def comeback_line(change, total_streak: int) -> str | None:
     return None
 
 
+def badge_toast(codes: list[str]) -> str | None:
+    if not codes:
+        return None
+    labels = " · ".join(badge_label(code) for code in codes)
+    return f"🏅 نشان جدید گرفتی: {labels}"
+
+
 def read_toast(
     streak: int,
     created: bool,
@@ -115,6 +123,7 @@ def read_toast(
     freeze_earned: bool = False,
     freeze_balance: int = 0,
     comeback: str | None = None,
+    badges: list[str] | None = None,
 ) -> str:
     if not created:
         return ALREADY_READ
@@ -133,6 +142,9 @@ def read_toast(
         )
     if comeback:
         message += f"\n{comeback}"
+    badge_line = badge_toast(badges or [])
+    if badge_line:
+        message += f"\n{badge_line}"
     return message
 
 
@@ -171,14 +183,19 @@ def weekly_summary(days_read: int, streak: int, best: int, freeze_balance: int) 
     )
 
 
-def profile(streak: int, best: int, freeze_balance: int, opted_out: bool) -> str:
+def profile(streak: int, best: int, freeze_balance: int, opted_out: bool, badges: list[str]) -> str:
     participation = "خاموش" if opted_out else "روشن"
+    if badges:
+        badges_line = " · ".join(badge_label(code) for code in badges)
+    else:
+        badges_line = "هنوز نشانی نداری؛ اولین مطالعه اولین نشانته ⭐"
     return (
         "👤 <b>پروفایل من</b>\n\n"
         f"🔥 استریک فعلی: {fa(streak)} روز\n"
         f"🏆 بهترین استریک: {fa(best)} روز\n"
         f"🛡️ فریزهای موجود: {fa(freeze_balance)}/{fa(MAX_STREAK_FREEZES)}\n"
-        f"🏅 حضور در لیدربورد: {participation}"
+        f"🏅 حضور در لیدربورد: {participation}\n\n"
+        f"🎖 نشان‌ها: {badges_line}"
     )
 
 
@@ -218,6 +235,7 @@ def admin_dashboard(stats: dict[str, int], series: list[tuple[object, int]]) -> 
         f"🛡️ فریزهای مصرف‌شده: {fa(stats['freezes_used'])}\n"
         f"⚠️ هشدار «استریک در خطر» در ۷ روز: {fa(stats['streak_alerts_7d'])}\n"
         f"🔁 کاربران با پاداش comeback: {fa(stats['comeback_users'])}\n"
+        f"🎖 نشان‌ها: {fa(stats['badges_total'])} اهدا به {fa(stats['badge_holders'])} نفر\n"
         f"🗑 حساب حذف‌شده: {fa(stats['accounts_deleted'])} · ۷ روز اخیر: "
         f"{fa(stats['deletions_7d'])}\n\n"
         "<b>فعالیت ۷ روز اخیر</b>\n" + "\n".join(chart)

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from BOOKzMA.db.models import (
     ActivityDay,
+    Badge,
     ReadingLog,
     Reminder,
     StreakAlert,
@@ -68,6 +69,7 @@ async def dashboard(session: AsyncSession, today: date) -> dict[str, int]:
     counts["inactive_30d"] = await _inactive_starters(session, thirty_days_ago)
     counts.update(await retention_rates(session, today))
     counts.update(await streak_stats(session))
+    counts.update(await badges_stats(session))
     deleted_total, deleted_recent = await users.deletion_counts(
         session, now - timedelta(days=7)
     )
@@ -156,6 +158,12 @@ async def retention_rates(session: AsyncSession, today: date) -> dict[str, int]:
 
 def _utc_day(column):
     return cast(func.timezone("UTC", column), Date)
+
+
+async def badges_stats(session: AsyncSession) -> dict[str, int]:
+    total = await session.scalar(select(func.count()).select_from(Badge)) or 0
+    holders = await session.scalar(select(func.count(func.distinct(Badge.user_id)))) or 0
+    return {"badges_total": total, "badge_holders": holders}
 
 
 async def streak_stats(session: AsyncSession) -> dict[str, int]:
