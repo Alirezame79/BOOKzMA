@@ -12,8 +12,8 @@ from BOOKzMA import keyboards, texts
 from BOOKzMA.config import Settings
 from BOOKzMA.handlers.common import render_home
 from BOOKzMA.handlers.onboarding import start_onboarding
-from BOOKzMA.handlers.miswak_social import (
-    INVITE_PREFIX as MISWAK_INVITE_PREFIX,
+from BOOKzMA.handlers.mesbak_social import (
+    INVITE_PREFIX as MESBAK_INVITE_PREFIX,
     redeem_start_invite,
 )
 from BOOKzMA.middlewares.membership import missing_channels
@@ -85,27 +85,27 @@ async def cmd_start(
         if command and command.args:
             if bot is not None and command.args.startswith(INVITE_PREFIX):
                 await _accept_buddy_invite(message, session, bot, command.args, user)
-            elif command.args.startswith(MISWAK_INVITE_PREFIX):
+            elif command.args.startswith(MESBAK_INVITE_PREFIX):
                 status, inviter_id = await redeem_start_invite(session, user.id, command.args)
                 await session.commit()
                 if status == "inactive":
                     await message.answer(
-                        texts.MISWAK_BUDDY_INACTIVE,
-                        reply_markup=keyboards.miswak_intro_kb(),
+                        texts.mesbak_BUDDY_INACTIVE,
+                        reply_markup=keyboards.mesbak_intro_kb(),
                     )
                 elif status == "accepted":
-                    await message.answer(texts.MISWAK_BUDDY_ACCEPTED)
+                    await message.answer(texts.mesbak_BUDDY_ACCEPTED)
                     if bot is not None and inviter_id is not None:
                         try:
-                            await bot.send_message(inviter_id, texts.MISWAK_BUDDY_ACCEPTED)
+                            await bot.send_message(inviter_id, texts.mesbak_BUDDY_ACCEPTED)
                         except TelegramAPIError:
-                            log.info("miswak buddy invite notification failed")
+                            log.info("mesbak buddy invite notification failed")
                 elif status == "already":
-                    await message.answer(texts.MISWAK_BUDDY_ALREADY)
+                    await message.answer(texts.mesbak_BUDDY_ALREADY)
                 elif status == "self":
-                    await message.answer(texts.MISWAK_BUDDY_SELF)
+                    await message.answer(texts.mesbak_BUDDY_SELF)
                 else:
-                    await message.answer(texts.MISWAK_BUDDY_UNAVAILABLE)
+                    await message.answer(texts.mesbak_BUDDY_UNAVAILABLE)
         if user.onboarded_at is None:
             await start_onboarding(message, session, state)
             return

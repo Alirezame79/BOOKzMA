@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 from aiogram.exceptions import TelegramForbiddenError, TelegramRetryAfter
 from aiogram.methods import SendMessage
 
-from BOOKzMA.services import miswak_scheduler
+from BOOKzMA.services import mesbak_scheduler
 
 TODAY = date(2026, 10, 26)
 NOW = datetime(2026, 10, 26, 6, 40, tzinfo=ZoneInfo("Asia/Tehran"))
@@ -69,12 +69,12 @@ def _patch_clock_and_rows(monkeypatch, rows, entries):
     async def no_sleep(_seconds):
         return None
 
-    monkeypatch.setattr(miswak_scheduler, "local_now", lambda _timezone: NOW)
-    monkeypatch.setattr(miswak_scheduler.miswak_repo, "due_reminders", due_reminders)
+    monkeypatch.setattr(mesbak_scheduler, "local_now", lambda _timezone: NOW)
+    monkeypatch.setattr(mesbak_scheduler.mesbak_repo, "due_reminders", due_reminders)
     monkeypatch.setattr(
-        miswak_scheduler.miswak_repo, "entries_for_day", entries_for_day
+        mesbak_scheduler.mesbak_repo, "entries_for_day", entries_for_day
     )
-    monkeypatch.setattr(miswak_scheduler.asyncio, "sleep", no_sleep)
+    monkeypatch.setattr(mesbak_scheduler.asyncio, "sleep", no_sleep)
 
 
 def test_scheduler_sends_due_occurrence_and_marks_it_sent(monkeypatch):
@@ -87,7 +87,7 @@ def test_scheduler_sends_due_occurrence_and_marks_it_sent(monkeypatch):
             sent.append((args, kwargs))
 
         session = Session()
-        await miswak_scheduler.send_due_miswak_reminders(
+        await mesbak_scheduler.send_due_mesbak_reminders(
             SimpleNamespace(send_message=send_message), SessionPool(session)
         )
 
@@ -110,7 +110,7 @@ def test_scheduler_skips_completed_goal(monkeypatch):
             sent.append((args, kwargs))
 
         session = Session()
-        await miswak_scheduler.send_due_miswak_reminders(
+        await mesbak_scheduler.send_due_mesbak_reminders(
             SimpleNamespace(send_message=send_message), SessionPool(session)
         )
 
@@ -132,7 +132,7 @@ def test_scheduler_persists_retry_after(monkeypatch):
             )
 
         session = Session()
-        await miswak_scheduler.send_due_miswak_reminders(
+        await mesbak_scheduler.send_due_mesbak_reminders(
             SimpleNamespace(send_message=send_message), SessionPool(session)
         )
 
@@ -159,10 +159,10 @@ def test_scheduler_removes_reminders_after_user_blocks_bot(monkeypatch):
             )
 
         monkeypatch.setattr(
-            miswak_scheduler.miswak_repo, "delete_reminders", delete_reminders
+            mesbak_scheduler.mesbak_repo, "delete_reminders", delete_reminders
         )
         session = Session()
-        await miswak_scheduler.send_due_miswak_reminders(
+        await mesbak_scheduler.send_due_mesbak_reminders(
             SimpleNamespace(send_message=send_message), SessionPool(session)
         )
 

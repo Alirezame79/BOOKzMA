@@ -1,4 +1,4 @@
-"""Add the optional miswak habit and targeted campaign fields.
+"""Add the optional mesbak habit and targeted campaign fields.
 
 Revision ID: 0013
 Revises: 0012
@@ -24,7 +24,7 @@ def upgrade() -> None:
     op.create_check_constraint(
         "ck_broadcast_campaign_audience",
         "broadcast_campaigns",
-        "audience IN ('all', 'miswak')",
+        "audience IN ('all', 'mesbak')",
     )
     op.create_check_constraint(
         "ck_broadcast_campaign_media_type",
@@ -33,7 +33,7 @@ def upgrade() -> None:
     )
 
     op.create_table(
-        "miswak_profiles",
+        "mesbak_profiles",
         sa.Column("user_id", sa.BigInteger(), nullable=False),
         sa.Column("enabled", sa.Boolean(), server_default=sa.false(), nullable=False),
         sa.Column("daily_goal", sa.Integer(), server_default="1", nullable=False),
@@ -42,16 +42,16 @@ def upgrade() -> None:
         sa.Column(
             "joined_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),
-        sa.CheckConstraint("daily_goal BETWEEN 1 AND 5", name="ck_miswak_profile_daily_goal"),
+        sa.CheckConstraint("daily_goal BETWEEN 1 AND 5", name="ck_mesbak_profile_daily_goal"),
         sa.CheckConstraint(
             "next_daily_goal IS NULL OR next_daily_goal BETWEEN 1 AND 5",
-            name="ck_miswak_profile_next_goal",
+            name="ck_mesbak_profile_next_goal",
         ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("user_id"),
     )
     op.create_table(
-        "miswak_entries",
+        "mesbak_entries",
         sa.Column("user_id", sa.BigInteger(), nullable=False),
         sa.Column("day", sa.Date(), nullable=False),
         sa.Column("slot", sa.Integer(), nullable=False),
@@ -59,15 +59,15 @@ def upgrade() -> None:
         sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),
-        sa.CheckConstraint("slot BETWEEN 1 AND 5", name="ck_miswak_entry_slot"),
-        sa.CheckConstraint("daily_goal BETWEEN 1 AND 5", name="ck_miswak_entry_goal"),
-        sa.CheckConstraint("slot <= daily_goal", name="ck_miswak_entry_slot_goal"),
+        sa.CheckConstraint("slot BETWEEN 1 AND 5", name="ck_mesbak_entry_slot"),
+        sa.CheckConstraint("daily_goal BETWEEN 1 AND 5", name="ck_mesbak_entry_goal"),
+        sa.CheckConstraint("slot <= daily_goal", name="ck_mesbak_entry_slot_goal"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("user_id", "day", "slot"),
     )
-    op.create_index("ix_miswak_entries_day", "miswak_entries", ["day"])
+    op.create_index("ix_mesbak_entries_day", "mesbak_entries", ["day"])
     op.create_table(
-        "miswak_reminders",
+        "mesbak_reminders",
         sa.Column("user_id", sa.BigInteger(), nullable=False),
         sa.Column("slot", sa.Integer(), nullable=False),
         sa.Column("remind_at", sa.Time(), nullable=False),
@@ -75,29 +75,29 @@ def upgrade() -> None:
         sa.Column("attempt_date", sa.Date(), nullable=True),
         sa.Column("attempt_count", sa.Integer(), server_default="0", nullable=False),
         sa.Column("retry_after_until", sa.DateTime(timezone=True), nullable=True),
-        sa.CheckConstraint("slot BETWEEN 1 AND 5", name="ck_miswak_reminder_slot"),
-        sa.ForeignKeyConstraint(["user_id"], ["miswak_profiles.user_id"], ondelete="CASCADE"),
+        sa.CheckConstraint("slot BETWEEN 1 AND 5", name="ck_mesbak_reminder_slot"),
+        sa.ForeignKeyConstraint(["user_id"], ["mesbak_profiles.user_id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("user_id", "slot"),
-        sa.UniqueConstraint("user_id", "remind_at", name="uq_miswak_reminder_user_time"),
+        sa.UniqueConstraint("user_id", "remind_at", name="uq_mesbak_reminder_user_time"),
     )
     op.create_table(
-        "miswak_badges",
+        "mesbak_badges",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("user_id", sa.BigInteger(), nullable=False),
         sa.Column("code", sa.String(length=32), nullable=False),
         sa.Column("awarded_day", sa.Date(), nullable=False),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("user_id", "code", name="uq_miswak_badge_user_code"),
+        sa.UniqueConstraint("user_id", "code", name="uq_mesbak_badge_user_code"),
     )
 
 
 def downgrade() -> None:
-    op.drop_table("miswak_badges")
-    op.drop_table("miswak_reminders")
-    op.drop_index("ix_miswak_entries_day", table_name="miswak_entries")
-    op.drop_table("miswak_entries")
-    op.drop_table("miswak_profiles")
+    op.drop_table("mesbak_badges")
+    op.drop_table("mesbak_reminders")
+    op.drop_index("ix_mesbak_entries_day", table_name="mesbak_entries")
+    op.drop_table("mesbak_entries")
+    op.drop_table("mesbak_profiles")
     op.drop_constraint(
         "ck_broadcast_campaign_media_type", "broadcast_campaigns", type_="check"
     )

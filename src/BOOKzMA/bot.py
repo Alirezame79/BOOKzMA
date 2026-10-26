@@ -14,7 +14,7 @@ from BOOKzMA.middlewares.db import DbSessionMiddleware
 from BOOKzMA.middlewares.membership import MembershipMiddleware
 from BOOKzMA.middlewares.rate_limit import RateLimitMiddleware
 from BOOKzMA.services.scheduler import reminder_loop
-from BOOKzMA.services.miswak_scheduler import miswak_reminder_loop
+from BOOKzMA.services.mesbak_scheduler import mesbak_reminder_loop
 from BOOKzMA.services.broadcast import broadcast_loop
 from BOOKzMA.services.risk_alert import risk_alert_loop
 
@@ -25,7 +25,7 @@ COMMANDS = [
     BotCommand(command="reminders", description="یادآورهای مطالعه"),
     BotCommand(command="timezone", description="منطقه زمانی"),
     BotCommand(command="profile", description="پروفایل و استریک من"),
-    BotCommand(command="miswak", description="استریک و یادآوری مسباک"),
+    BotCommand(command="mesbak", description="استریک و یادآوری مسباک"),
     BotCommand(command="support", description="حمایت از پروژه"),
 ]
 ADMIN_COMMANDS = [*COMMANDS, BotCommand(command="admin", description="مدیریت ربات")]
@@ -60,7 +60,7 @@ async def start_bot(
     dp.include_router(get_router())
 
     reminders_task = asyncio.create_task(reminder_loop(bot, session_pool))
-    miswak_task = asyncio.create_task(miswak_reminder_loop(bot, session_pool))
+    mesbak_task = asyncio.create_task(mesbak_reminder_loop(bot, session_pool))
     broadcast_task = asyncio.create_task(broadcast_loop(bot, session_pool))
     risk_alert_task = asyncio.create_task(risk_alert_loop(bot, session_pool))
     try:
@@ -73,4 +73,4 @@ async def start_bot(
         log.warning("set_my_commands failed (%s), continuing", type(exc).__name__)
     polling_task = asyncio.create_task(dp.start_polling(bot, handle_signals=False))
     log.info("Telegram polling task started")
-    return bot, [reminders_task, miswak_task, broadcast_task, risk_alert_task, polling_task]
+    return bot, [reminders_task, mesbak_task, broadcast_task, risk_alert_task, polling_task]

@@ -79,7 +79,7 @@ def test_start_onboarding_sends_welcome_with_time_keyboard():
             for row in sent[0][1].inline_keyboard
             for button in row
         }
-        assert "miswak:open" in callback_data
+        assert "mesbak:open" in callback_data
         assert recorded["clears"] == 1
 
     asyncio.run(run_test())

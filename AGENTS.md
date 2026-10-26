@@ -7,7 +7,7 @@ BOOKzMA is a Python 3.12 Persian Telegram reading bot with an existing FastAPI A
 1. Read [ARCHITECTURE.md](ARCHITECTURE.md) before changing runtime structure.
 2. Read [BOT_GUIDE.md](BOT_GUIDE.md) before changing commands, callbacks, FSM state, API routes, tables, or environment variables.
 3. Read [docs/DECISIONS.md](docs/DECISIONS.md) before proposing a different technology or architecture.
-4. Read [docs/ROADMAP.md](docs/ROADMAP.md); an idea is not authorization to implement it.
+4. Read [docs/ROADMAP.md](docs/ROADMAP.md); an idea is not authorization to implement it. The roadmap's top section names the current **priority-1 task**; that task must be completed first, before any new feature work.
 5. Read the relevant topic guide: [LOCAL_DEV](docs/LOCAL_DEV.md), [TESTING](docs/TESTING.md), [SECURITY_PRACTICES](docs/SECURITY_PRACTICES.md), [PERFORMANCE](docs/PERFORMANCE.md), [BACKUP](docs/BACKUP.md), [DOCS_MAINTENANCE](docs/DOCS_MAINTENANCE.md), and [spec template](docs/specs/TEMPLATE.md). For owner workflows, see [vibe guide](docs/vibe/GUIDE.md) and [prompt library](docs/vibe/PROMPTS.md).
 
 Never assume: open the actual file and verify the behavior before documenting or changing it.
@@ -25,7 +25,7 @@ Never assume: open the actual file and verify the behavior before documenting or
 - **Agent sessions (mandatory):** every agent, at the very start of a session/task, must create its own separate branch from up-to-date `main` and do all of its work on that branch. Never work on, edit, or commit to the main branch — no exceptions.
 - Preserve dirty user changes. Do not discard, stash, or switch away from unclear changes; ask before mixing unrelated work. If the current non-main branch already contains the same in-progress task, continue it rather than moving its changes.
 - Do not commit, push, merge, or tag unless explicitly asked. At the end of every feature, provide branch, test/local-run, Docker/database, PR/merge/tag, and post-merge server deployment guidance.
-- Never recommend adding the ignored private `dev_run.py` to GitHub. Keep it and `.env` local; only propose a separate placeholder example after explicit approval.
+- `dev_run.py` is the shared local developer launcher and is tracked. Keep credentials in environment configuration; never hardcode tokens or proxy credentials.
 
 ## Current Layout and Change Boundaries
 
@@ -45,8 +45,8 @@ Never assume: open the actual file and verify the behavior before documenting or
 ## Hard Rules
 
 - Preserve the `BOOKzMA` package name and Python 3.12 compatibility. Ruff line length is 100.
-- Keep proxy code out of `src/`. `dev_run.py` is an owner's ignored local launcher: never read, import, commit, rewrite, delete, or replace it. Keep local and Docker execution compatible; see [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md).
-- Never put real tokens, passwords, keys, DSNs, server details, user data, or database backups in source, tests, docs, issues, prompts, or Git. Never log bot tokens. Do not read `.env` or `dev_run.py`.
+- Keep proxy code out of `src/`. `dev_run.py` is the shared local launcher; maintain it alongside Docker execution and follow [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md).
+- Never put real tokens, passwords, keys, DSNs, server details, user data, or database backups in source, tests, docs, issues, prompts, or Git. Never log bot tokens. Do not read `.env`.
 - Escape user/external values before inserting them into HTML-mode Telegram messages. Validate callback payloads, including Telegram's 64-byte limit. Any future privileged action must authorize on the server, not merely hide a button.
 - Schema changes require a new Alembic revision; never edit an applied migration. Do not use `Base.metadata.create_all()`.
 - Avoid blocking work and avoid repeated per-item queries in handlers or request loops. Keep database writes safe under duplicate/concurrent requests.

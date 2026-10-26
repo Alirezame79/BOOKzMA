@@ -2,7 +2,7 @@ import asyncio
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-from BOOKzMA.handlers.miswak import render_miswak
+from BOOKzMA.handlers.mesbak import render_mesbak
 
 
 class Session:
@@ -13,7 +13,7 @@ class Session:
         self.commits += 1
 
 
-def test_direct_miswak_entry_marks_new_user_as_started(monkeypatch):
+def test_direct_mesbak_entry_marks_new_user_as_started(monkeypatch):
     async def run_test():
         user = SimpleNamespace(
             id=777,
@@ -39,13 +39,13 @@ def test_direct_miswak_entry_marks_new_user_as_started(monkeypatch):
         async def show(_event, text, keyboard):
             shown.append((text, keyboard))
 
-        monkeypatch.setattr("BOOKzMA.handlers.miswak.users.get_or_create", get_or_create)
-        monkeypatch.setattr("BOOKzMA.handlers.miswak.users.mark_started", mark_started)
-        monkeypatch.setattr("BOOKzMA.handlers.miswak.miswak_repo.get_profile", get_profile)
-        monkeypatch.setattr("BOOKzMA.handlers.miswak.show", show)
+        monkeypatch.setattr("BOOKzMA.handlers.mesbak.users.get_or_create", get_or_create)
+        monkeypatch.setattr("BOOKzMA.handlers.mesbak.users.mark_started", mark_started)
+        monkeypatch.setattr("BOOKzMA.handlers.mesbak.mesbak_repo.get_profile", get_profile)
+        monkeypatch.setattr("BOOKzMA.handlers.mesbak.show", show)
 
         session = Session()
-        await render_miswak(SimpleNamespace(), session, SimpleNamespace(
+        await render_mesbak(SimpleNamespace(), session, SimpleNamespace(
             id=777, username="user", full_name="User"
         ))
 

@@ -24,6 +24,7 @@ def make_settings(tmp_path, **overrides):
         "admin_telegram_ids": "123",
         "database_url": "postgresql+asyncpg://bookzma:pw@db:5432/bookzma",
         "backup_dir": str(tmp_path / "backups"),
+        "backup_keep_local": 1,
     }
     defaults.update(overrides)
     return Settings(**defaults)
@@ -109,9 +110,19 @@ def test_parse_dump_target_rejects_unsupported_urls():
 def test_is_unsafe_backup_dir(tmp_path):
     assert is_unsafe_backup_dir(tmp_path / "backups") is False
     import BOOKzMA
+    from pathlib import Path
 
-    source_root = BOOKzMA.__file__.rsplit("/", 2)[0]  # پوشهٔ src
-    assert is_unsafe_backup_dir(f"{source_root}/backups") is True
+    project_root = Path(BOOKzMA.__file__).resolve().parents[2]
+    assert is_unsafe_backup_dir(project_root / "backups") is False
+    assert is_unsafe_backup_dir(project_root / "src" / "backups") is True
+
+
+def test_relative_backup_dir_resolves_from_project_root(monkeypatch, tmp_path):
+    import BOOKzMA
+
+    project_root = Path(BOOKzMA.__file__).resolve().parents[2]
+    monkeypatch.chdir(tmp_path)
+    assert backup_service._resolved_backup_dir("backups") == project_root / "backups"
 
 
 def fake_pg_proc(returncode=0, stderr=b""):
@@ -162,6 +173,23 @@ def test_run_backup_success_rotates_old_dumps(monkeypatch, tmp_path):
     import os
 
     assert os.listdir(backup_dir) == [info.name]
+
+
+def test_run_backup_missing_pg_dump_is_reported_and_partial_file_removed(monkeypatch, tmp_path):
+    settings = make_settings(tmp_path)
+
+    async def missing_executable(*args, **kwargs):
+        raise FileNotFoundError("pg_dump")
+
+    monkeypatch.setattr(backup_service.asyncio, "create_subprocess_exec", missing_executable)
+    try:
+        asyncio.run(backup_service.run_backup(settings))
+    except BackupError as exc:
+        assert "pg_dump" in str(exc)
+    else:
+        raise AssertionError("expected BackupError when pg_dump is unavailable")
+
+    assert list(Path(settings.backup_dir).iterdir()) == []
 
 
 def test_run_backup_failure_removes_partial_file(monkeypatch, tmp_path):
@@ -220,6 +248,60 @@ def test_run_restore_success(monkeypatch, tmp_path):
     args = calls[0]
     assert args[0] == "pg_restore"
     assert "--clean" in args and "--no-owner" in args and "--no-acl" in args
+
+
+def test_run_restore_missing_pg_restore_is_reported(monkeypatch, tmp_path):
+    settings = make_settings(tmp_path)
+    backup_dir = Path(settings.backup_dir)
+    backup_dir.mkdir(parents=True)
+    name = "bookzma-2026-10-25-033000.dump"
+    (backup_dir / name).write_bytes(b"PGDMP-fake")
+
+    async def missing_executable(*args, **kwargs):
+        raise FileNotFoundError("pg_restore")
+
+    monkeypatch.setattr(backup_service.asyncio, "create_subprocess_exec", missing_executable)
+    try:
+        asyncio.run(backup_service.run_restore(settings, name))
+    except BackupError as exc:
+        assert "pg_restore" in str(exc)
+    else:
+        raise AssertionError("expected BackupError when pg_restore is unavailable")
+
+
+def test_run_restore_logs_postgres_error(monkeypatch, tmp_path, caplog):
+    settings = make_settings(tmp_path)
+    backup_dir = Path(settings.backup_dir)
+    backup_dir.mkdir(parents=True)
+    name = "bookzma-2026-10-25-033000.dump"
+    (backup_dir / name).write_bytes(b"PGDMP-fake")
+    patch_subprocess(monkeypatch, returncode=1, stderr=b"permission denied for database")
+
+    try:
+        asyncio.run(backup_service.run_restore(settings, name))
+    except BackupError:
+        pass
+    else:
+        raise AssertionError("expected BackupError for failed pg_restore")
+
+    assert "permission denied for database" in caplog.text
+
+
+def test_run_restore_ignores_only_unsupported_transaction_timeout(monkeypatch, tmp_path):
+    settings = make_settings(tmp_path)
+    backup_dir = Path(settings.backup_dir)
+    backup_dir.mkdir(parents=True)
+    name = "bookzma-2026-10-25-033000.dump"
+    (backup_dir / name).write_bytes(b"PGDMP-fake")
+    stderr = (
+        b'pg_restore: error: could not execute query: ERROR:  unrecognized configuration '
+        b'parameter "transaction_timeout"\n'
+        b"Command was: SET transaction_timeout = 0;\n"
+        b"pg_restore: warning: errors ignored on restore: 1\n"
+    )
+    patch_subprocess(monkeypatch, returncode=1, stderr=stderr)
+
+    assert asyncio.run(backup_service.run_restore(settings, name)) is None
 
 
 def test_run_restore_rejects_bad_or_missing_files(monkeypatch, tmp_path):

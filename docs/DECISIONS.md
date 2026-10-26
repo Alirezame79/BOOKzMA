@@ -112,11 +112,11 @@ Each entry records current intent, not a claim that future work is implemented.
 
 **Revisit when:** The owner requests reusable/group invitations, invitation analytics, or pairing behavior that replaces an existing buddy.
 
-## D-12 — Independent Miswak Habit and Cohort
+## D-12 — Independent Mesbak Habit and Cohort
 
 **Status:** Implementing as an opt-in Telegram feature.
 
-**Decision:** Keep goals, occurrence logs, streaks, reminders, badges, challenges, league membership, and buddy pairs separate from reading tables and streak calculations. A day is complete only after reaching the user's 1–5 occurrence goal. Goal changes take effect on the next local date. Each occurrence is unique per user/local day/slot. Joining the section explicitly opts into possible education campaigns from the admin; leaving disables reminders and future campaign eligibility but preserves history. Admin campaigns snapshot their selected cohort and recheck active membership before each send. No API endpoints are added.
+**Decision:** Keep goals, occurrence logs, streaks, reminders, badges, challenges, league membership, buddy pairs, and the anonymous matching queue separate from reading tables and streak calculations. A day is complete only after reaching the user's 1–5 occurrence goal. Goal changes take effect on the next local date. Each occurrence is unique per user/local day/slot. Buddy relationships may be created by one-time invite or anonymous FIFO matching; anonymous matches do not reveal display names in lists or notifications and each member has at most one active random match. Joining the section explicitly opts into possible education campaigns from the admin; leaving disables reminders and future campaign eligibility but preserves history and removes the user from the anonymous queue. Admin campaigns snapshot their selected cohort and recheck active membership before each send. No API endpoints are added.
 
 **Why:** The feature serves users who may not use book tracking and gives the owner an explicit, auditable education cohort without conflating unrelated activity or exposing social data publicly.
 

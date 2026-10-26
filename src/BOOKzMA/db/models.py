@@ -157,7 +157,7 @@ class BroadcastCampaign(Base):
             name="ck_broadcast_campaign_status",
         ),
         CheckConstraint(
-            "audience IN ('all', 'miswak')", name="ck_broadcast_campaign_audience"
+            "audience IN ('all', 'mesbak')", name="ck_broadcast_campaign_audience"
         ),
         CheckConstraint(
             "media_type IS NULL OR media_type IN ('photo', 'video')",
@@ -226,13 +226,13 @@ class Reminder(Base):
     retry_after_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
-class MiswakProfile(Base):
-    __tablename__ = "miswak_profiles"
+class MesbakProfile(Base):
+    __tablename__ = "mesbak_profiles"
     __table_args__ = (
-        CheckConstraint("daily_goal BETWEEN 1 AND 5", name="ck_miswak_profile_daily_goal"),
+        CheckConstraint("daily_goal BETWEEN 1 AND 5", name="ck_mesbak_profile_daily_goal"),
         CheckConstraint(
             "next_daily_goal IS NULL OR next_daily_goal BETWEEN 1 AND 5",
-            name="ck_miswak_profile_next_goal",
+            name="ck_mesbak_profile_next_goal",
         ),
     )
 
@@ -247,13 +247,13 @@ class MiswakProfile(Base):
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-class MiswakEntry(Base):
-    __tablename__ = "miswak_entries"
+class MesbakEntry(Base):
+    __tablename__ = "mesbak_entries"
     __table_args__ = (
-        CheckConstraint("slot BETWEEN 1 AND 5", name="ck_miswak_entry_slot"),
-        CheckConstraint("daily_goal BETWEEN 1 AND 5", name="ck_miswak_entry_goal"),
-        CheckConstraint("slot <= daily_goal", name="ck_miswak_entry_slot_goal"),
-        Index("ix_miswak_entries_day", "day"),
+        CheckConstraint("slot BETWEEN 1 AND 5", name="ck_mesbak_entry_slot"),
+        CheckConstraint("daily_goal BETWEEN 1 AND 5", name="ck_mesbak_entry_goal"),
+        CheckConstraint("slot <= daily_goal", name="ck_mesbak_entry_slot_goal"),
+        Index("ix_mesbak_entries_day", "day"),
     )
 
     user_id: Mapped[int] = mapped_column(
@@ -265,15 +265,15 @@ class MiswakEntry(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-class MiswakReminder(Base):
-    __tablename__ = "miswak_reminders"
+class MesbakReminder(Base):
+    __tablename__ = "mesbak_reminders"
     __table_args__ = (
-        CheckConstraint("slot BETWEEN 1 AND 5", name="ck_miswak_reminder_slot"),
-        UniqueConstraint("user_id", "remind_at", name="uq_miswak_reminder_user_time"),
+        CheckConstraint("slot BETWEEN 1 AND 5", name="ck_mesbak_reminder_slot"),
+        UniqueConstraint("user_id", "remind_at", name="uq_mesbak_reminder_user_time"),
     )
 
     user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("miswak_profiles.user_id", ondelete="CASCADE"), primary_key=True
+        BigInteger, ForeignKey("mesbak_profiles.user_id", ondelete="CASCADE"), primary_key=True
     )
     slot: Mapped[int] = mapped_column(Integer, primary_key=True)
     remind_at: Mapped[time] = mapped_column(Time)
@@ -283,9 +283,9 @@ class MiswakReminder(Base):
     retry_after_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
-class MiswakBadge(Base):
-    __tablename__ = "miswak_badges"
-    __table_args__ = (UniqueConstraint("user_id", "code", name="uq_miswak_badge_user_code"),)
+class MesbakBadge(Base):
+    __tablename__ = "mesbak_badges"
+    __table_args__ = (UniqueConstraint("user_id", "code", name="uq_mesbak_badge_user_code"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
@@ -293,16 +293,16 @@ class MiswakBadge(Base):
     awarded_day: Mapped[date] = mapped_column(Date)
 
 
-class MiswakChallenge(Base):
-    __tablename__ = "miswak_challenges"
+class MesbakChallenge(Base):
+    __tablename__ = "mesbak_challenges"
     __table_args__ = (
-        CheckConstraint("duration IN (7, 30)", name="ck_miswak_challenge_duration"),
+        CheckConstraint("duration IN (7, 30)", name="ck_mesbak_challenge_duration"),
         CheckConstraint(
             "status IN ('active', 'completed', 'cancelled')",
-            name="ck_miswak_challenge_status",
+            name="ck_mesbak_challenge_status",
         ),
         Index(
-            "uq_miswak_challenge_active_user",
+            "uq_mesbak_challenge_active_user",
             "user_id",
             unique=True,
             postgresql_where=text("status = 'active'"),
@@ -318,9 +318,9 @@ class MiswakChallenge(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-class MiswakBuddyInvite(Base):
-    __tablename__ = "miswak_buddy_invites"
-    __table_args__ = (Index("ix_miswak_buddy_invites_inviter", "inviter_id"),)
+class MesbakBuddyInvite(Base):
+    __tablename__ = "mesbak_buddy_invites"
+    __table_args__ = (Index("ix_mesbak_buddy_invites_inviter", "inviter_id"),)
 
     token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     inviter_id: Mapped[int] = mapped_column(
@@ -330,15 +330,16 @@ class MiswakBuddyInvite(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
-class MiswakBuddyPair(Base):
-    __tablename__ = "miswak_buddy_pairs"
+class MesbakBuddyPair(Base):
+    __tablename__ = "mesbak_buddy_pairs"
     __table_args__ = (
-        CheckConstraint("user_a < user_b", name="ck_miswak_buddy_pair_order"),
+        CheckConstraint("user_a < user_b", name="ck_mesbak_buddy_pair_order"),
+        CheckConstraint("pair_type IN ('invite', 'random')", name="ck_mesbak_buddy_pair_type"),
         CheckConstraint(
-            "status IN ('active', 'ended')", name="ck_miswak_buddy_pair_status"
+            "status IN ('active', 'ended')", name="ck_mesbak_buddy_pair_status"
         ),
         Index(
-            "uq_miswak_buddy_pair_active",
+            "uq_mesbak_buddy_pair_active",
             "user_a",
             "user_b",
             unique=True,
@@ -349,7 +350,18 @@ class MiswakBuddyPair(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_a: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
     user_b: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
+    pair_type: Mapped[str] = mapped_column(String(16), default="invite", server_default="invite")
     status: Mapped[str] = mapped_column(String(16), default="active", server_default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_nudge_on: Mapped[date | None] = mapped_column(Date)
+
+
+class MesbakBuddyQueue(Base):
+    __tablename__ = "mesbak_buddy_queue"
+    __table_args__ = (Index("ix_mesbak_buddy_queue_joined", "joined_at", "user_id"),)
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("mesbak_profiles.user_id", ondelete="CASCADE"), primary_key=True
+    )
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

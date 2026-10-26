@@ -1,12 +1,12 @@
 # Bot and API Guide (Current)
 
-This guide records behavior verified in `src/BOOKzMA/`, migrations, and configuration. See [ARCHITECTURE.md](ARCHITECTURE.md) for runtime topology and [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md) for the owner-specific launcher; `dev_run.py` was not read.
+This guide records behavior verified in `src/BOOKzMA/`, migrations, and configuration. See [ARCHITECTURE.md](ARCHITECTURE.md) for runtime topology and [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md) for the local developer launcher.
 
 ## Commands and Bot Interface
 
-`bot.py` registers `/start`, `/reminders`, `/timezone`, `/profile`, `/miswak`, and `/support` for all users. Configured admins also receive `/admin` in their chat command scope. The persistent Persian reply keyboard includes `🤝 رفیق مطالعه` and `🪥 مسباک`; contextual flows continue to use inline keyboards. Admin entry points are checked against `ADMIN_TELEGRAM_IDS` in handlers, independently of menu visibility.
+`bot.py` registers `/start`, `/reminders`, `/timezone`, `/profile`, `/mesbak`, and `/support` for all users; `/mesbak` remains a compatibility alias. Configured admins also receive `/admin` in their chat command scope. The persistent Persian reply keyboard includes `🤝 رفیق مطالعه` and `🪥 مسباک`; contextual flows continue to use inline keyboards. Admin entry points are checked against `ADMIN_TELEGRAM_IDS` in handlers, independently of menu visibility.
 
-`/start` retains the optional onboarding, returning-reader welcome, and study-buddy invite flow. Its first-run screen has a direct button to the independent miswak section. A `miswakbuddy_<token>` payload accepts a separate miswak buddy invitation. Users can also open the section through `/miswak` or the reply keyboard without completing reading onboarding.
+`/start` retains the optional onboarding, returning-reader welcome, and study-buddy invite flow. Its first-run screen has a direct button to the independent Mesbak section. Buddy invitations use one-time `mesbakbuddy_<token>` deep links. Users can also open the section through `/mesbak` or the reply keyboard without completing reading onboarding.
 
 Callback payloads implemented in handlers/keyboards:
 
@@ -26,16 +26,17 @@ Callback payloads implemented in handlers/keyboards:
 | `tz_set:<index>` | Set one of the configured timezone choices |
 | `leaderboard:toggle` | Toggle the user's public leaderboard presence |
 | `leaderboard` | Show the current-streak leaderboard (display names only) |
-| `miswak:open` | Open the optional independent miswak section |
-| `miswak:join:<goal>` | Join with a daily goal from 1 to 5 and default reminder times |
-| `miswak:exit` | Leave the section, stop reminders and future cohort delivery, and close social opt-ins |
-| `miswak:done:<YYYYMMDD>:<slot>` | Record one dated occurrence; stale-day and duplicate callbacks are rejected |
-| `miswak:goal:<goal>` | Schedule a new daily goal for the next local day |
-| `miswak:time:<slot>` / `miswak:settime:<slot>:<HHMM>` | View or change one occurrence reminder |
-| `miswak:weekly` / `miswak:monthly` | Show 7-day or 30-day completion and streak reports |
-| `miswak:challenge:start:<7|30>` | Start one personal consecutive-day challenge |
-| `miswak:league` / `miswak:league:toggle` | View or opt in/out of the miswak-only weekly league |
-| `miswak:buddy:invite` / `miswak:buddy:nudge:<id>` / `miswak:buddy:end:<id>` | Invite, nudge, or end a separate miswak buddy pair |
+| `mesbak:open` | Open the optional independent Mesbak section |
+| `mesbak:join:<goal>` | Join with a daily goal from 1 to 5 and default reminder times |
+| `mesbak:exit` | Leave the section, stop reminders and future cohort delivery, and close social opt-ins |
+| `mesbak:done:<YYYYMMDD>:<slot>` | Record one dated occurrence; stale-day and duplicate callbacks are rejected |
+| `mesbak:goal:<goal>` | Schedule a new daily goal for the next local day |
+| `mesbak:time:<slot>` / `mesbak:settime:<slot>:<HHMM>` | View or change one occurrence reminder |
+| `mesbak:weekly` / `mesbak:monthly` | Show 7-day or 30-day completion and streak reports |
+| `mesbak:challenge:start:<7|30>` | Start one personal consecutive-day challenge |
+| `mesbak:league` / `mesbak:league:toggle` | View or opt in/out of the Mesbak-only weekly league |
+| `mesbak:buddy:invite` / `mesbak:buddy:open:<id>` / `mesbak:buddy:nudge:<id>` / `mesbak:buddy:end:<id>` | Invite, open one buddy's screen, nudge, or end a separate Mesbak buddy pair |
+| `mesbak:buddy:random:join` / `mesbak:buddy:random:leave` | Join or leave the independent anonymous FIFO Mesbak matching queue |
 | `account_del:start` | Start the account-deletion wizard from the profile |
 | `account_del:why` | Show the deletion-reason choices |
 | `account_del:reason:<index>` | Record a reason (validated against `DELETE_REASONS`) and ask for the typed confirmation word |
@@ -53,7 +54,7 @@ Callback payloads implemented in handlers/keyboards:
 | `buddy:end:<pair_id>` | End that pair; other buddy relationships remain active |
 | `admin:stats` | Show admin analytics; server-side admin check required |
 | `admin:broadcast` | Start a text or media campaign draft; server-side admin check required |
-| `broadcast:audience:<all|miswak>` | Select all reachable users or active miswak members for a campaign |
+| `broadcast:audience:<all|mesbak>` | Select all reachable users or active Mesbak members for a campaign |
 | `admin:backup` | Open the backup menu (latest backup, on-demand backup, restore); server-side admin check required |
 | `admin:backup_now` | Run an on-demand `pg_dump` through `services/backup.py`; server-side admin check required |
 | `admin:backup_restore` | List local backup files; server-side admin check required |
@@ -63,7 +64,7 @@ Callback payloads implemented in handlers/keyboards:
 | `broadcast:status:<id>` | Show counts for an owned campaign |
 | `broadcast:cancel:<id>` | Cancel an owned campaign |
 
-FSM states are `handlers.reminders.AddTime.waiting`, `handlers.miswak.SetReminderTime.waiting`, `handlers.admin.NewBroadcast.waiting_for_content/waiting_for_link`, `handlers.admin.BackupRestore.waiting_for_confirm`, and `handlers.account.DeleteAccount.waiting_word`; FSM storage remains in-memory. The existing onboarding flow remains stateless callback-driven and needs no FSM state. Arbitrary reminder times are parsed as 24-hour `HH[:MM]` with Persian or Arabic digits accepted.
+FSM states are `handlers.reminders.AddTime.waiting`, the Mesbak reminder-time state, `handlers.admin.NewBroadcast.waiting_for_content/waiting_for_link`, `handlers.admin.BackupRestore.waiting_for_confirm`, and `handlers.account.DeleteAccount.waiting_word`; FSM storage remains in-memory. The existing onboarding flow remains stateless callback-driven and needs no FSM state. Arbitrary reminder times are parsed as 24-hour `HH[:MM]` with Persian or Arabic digits accepted.
 
 Account deletion (`N-04`) is a four-step wizard started from the profile: a warning screen, a deletion-reason choice, a typed confirmation word (`حذف`), and a final button. Deletion removes the `users` row (cascading to all related tables) and inserts a `deleted_accounts` tombstone in the same transaction. The membership middleware intercepts tombstoned users before handlers run — they get a neutral start prompt (no mention of a previous account) and no activity or start is recorded for them; the `account_restore` callback clears the tombstone. The API exposes the same behavior through `DELETE /api/v1/me`, and authenticated requests for tombstoned users return 401 until they re-register via the bot.
 
@@ -105,12 +106,13 @@ The existing FastAPI app is in `api.py`; the container runs it through Uvicorn. 
 | `broadcast_campaigns` | Admin-owned campaign with audience, optional photo/video and HTTPS button, and delivery state |
 | `broadcast_deliveries` | Per-campaign/per-user state, attempt count and last error; cascades on user/campaign deletion. Users with permanent Telegram delivery failures are excluded from later broadcasts. |
 | `reminders` | Integer primary key; user foreign key; time; last-sent date; retry date/count/deadline; unique `(user_id, remind_at)` |
-| `miswak_profiles` | One opt-in profile per user; active flag, goal 1–5, next-day goal change, and separate league opt-in |
-| `miswak_entries` | `(user_id, local day, occurrence slot)` primary key; goal snapshot; unique slot writes make duplicate callbacks idempotent |
-| `miswak_reminders` | Up to five independent local times, one per goal slot; unique per user/time with separate send/retry state |
-| `miswak_badges` | Independent 7/30/100-day streak badges; unique `(user_id, code)` |
-| `miswak_challenges` | One active personal 7- or 30-day consecutive completion challenge per user; canceled after a missed, closed local day |
-| `miswak_buddy_invites` / `miswak_buddy_pairs` | Hashed, one-time, seven-day invite tokens; independent opt-in pairs and once-per-day nudges |
+| `mesbak_profiles` | One opt-in profile per user; active flag, goal 1–5, next-day goal change, and separate league opt-in |
+| `mesbak_entries` | `(user_id, local day, occurrence slot)` primary key; goal snapshot; unique slot writes make duplicate callbacks idempotent |
+| `mesbak_reminders` | Up to five independent local times, one per goal slot; unique per user/time with separate send/retry state |
+| `mesbak_badges` | Independent 7/30/100-day streak badges; unique `(user_id, code)` |
+| `mesbak_challenges` | One active personal 7- or 30-day consecutive completion challenge per user; canceled after a missed, closed local day |
+| `mesbak_buddy_invites` / `mesbak_buddy_pairs` | Hashed, one-time, seven-day invite tokens; independent opt-in pairs and once-per-day nudges |
+| `mesbak_buddy_queue` | One waiting row per active Mesbak member; removed on match, leaving the queue, Mesbak opt-out, or account deletion |
 
 Reading streak is computed from read dates plus explicitly used freeze dates; freeze days are not reported as reading. Users start with zero freezes, earn one per seven consecutive real reading days, and hold at most two. One missed day is automatically protected when reading resumes the next day; freezes cannot cover consecutive missed days. Weekly summaries cover today and the preceding six local dates. Reading reminders are capped at five per user; presets are `08:00`, `13:00`, `18:00`, `21:00`, and `23:00`.
 
@@ -118,10 +120,10 @@ Comeback streak (`S-07`): when a displayed streak of three or more days breaks, 
 
 Streak-at-risk alerts (`S-08`): a third background loop (`services/risk_alert.py`, 60-second interval) messages users at 21:00–21:10 local time when their raw streak is at least two days, the chain is intact through yesterday, and today is unread. Sends are deduplicated per user and local day in `streak_alerts`; a send failure marks the day as alerted anyway, and a downtime window longer than ten minutes skips that day entirely.
 
-Admin analytics count starts and UTC daily interactions from deployment onward, and report reading logs separately. A user who enters through `/miswak` without `/start` is also recorded as a starter. The dashboard also reports onboarding completions, streak-at-risk alerts, comeback users, badge holders, active/total study-buddy pairs, deleted accounts, and D1/D7/D30 return rates for sufficiently observed cohorts. Study-buddy nudges skip friends who have read or already received a nudge that day; eligible readers may see an optional prompt after reading. Streak KPIs use raw reading streaks. Broadcast campaigns snapshot recipients, require admin confirmation, allow one active campaign, send at 5 messages per second with bounded retries, and resume after restart. The miswak cohort can receive text or one photo/video with an optional HTTPS button; membership is checked again before each queued delivery. A crash after Telegram accepts a message but before the database update may cause one duplicate.
-Miswak is an optional, separate habit. Active users choose 1–5 daily occurrences; defaults are `06:30`, `13:00`, `16:00`, `19:00`, and `22:00`. For goals smaller than five, the latest N times are selected (one occurrence defaults to `22:00`; two default to `19:00` and `22:00`); all are editable. Each occurrence is recorded once per local date and the day counts toward the streak only when its goal is complete. Goal changes take effect the next local day. Current streak remains alive through today if yesterday was complete, but a missed full-goal day breaks it; no reading freeze or comeback bonus applies. Its reminder loop scans every 30 seconds, skips sends over ten minutes late and after the goal is complete, and caps retries at three per slot/day. At spring DST gaps, a nonexistent wall-clock time is skipped; an ambiguous fall-back time is sent once. A challenge is canceled after any previous local day closes without a completed goal; today remains open until its day ends.
+Admin analytics count starts and UTC daily interactions from deployment onward, and report reading logs separately. A user who enters through `/mesbak` without `/start` is also recorded as a starter. The dashboard also reports onboarding completions, streak-at-risk alerts, comeback users, badge holders, active/total study-buddy pairs, deleted accounts, and D1/D7/D30 return rates for sufficiently observed cohorts. Study-buddy nudges skip friends who have read or already received a nudge that day; eligible readers may see an optional prompt after reading. Streak KPIs use raw reading streaks. Broadcast campaigns snapshot recipients, require admin confirmation, allow one active campaign, send at 5 messages per second with bounded retries, and resume after restart. The mesbak cohort can receive text or one photo/video with an optional HTTPS button; membership is checked again before each queued delivery. A crash after Telegram accepts a message but before the database update may cause one duplicate.
+mesbak is an optional, separate habit. Active users choose 1–5 daily occurrences; defaults are `06:30`, `13:00`, `16:00`, `19:00`, and `22:00`. For goals smaller than five, the latest N times are selected (one occurrence defaults to `22:00`; two default to `19:00` and `22:00`); all are editable. Each occurrence is recorded once per local date and the day counts toward the streak only when its goal is complete. Goal changes take effect the next local day. Current streak remains alive through today if yesterday was complete, but a missed full-goal day breaks it; no reading freeze or comeback bonus applies. Its reminder loop scans every 30 seconds, skips sends over ten minutes late and after the goal is complete, and caps retries at three per slot/day. At spring DST gaps, a nonexistent wall-clock time is skipped; an ambiguous fall-back time is sent once. A challenge is canceled after any previous local day closes without a completed goal; today remains open until its day ends.
 
-Leaving the miswak section disables reminders, clears league consent, ends active challenges and buddy pairs, removes outgoing invites, and removes the user from future education campaign deliveries while retaining habit history; account deletion cascades all feature data. Active members are told they can receive admin education messages; there is no separate education opt-out. Campaigns support text or one photo/video, optional HTTPS button, preview/recipient count, and confirmation. Audience membership is snapshotted at draft time and rechecked immediately before sending. The dashboard reports only the current active cohort's 7/30-day activity and completion rate. The 7/30-day challenges, weekly league, and one-time buddy links are opt-in and isolated from reading social data.
+Leaving the mesbak section disables reminders, clears league consent, ends active challenges and buddy pairs, removes outgoing invites, and removes the user from future education campaign deliveries while retaining habit history; account deletion cascades all feature data. Active members are told they can receive admin education messages; there is no separate education opt-out. Campaigns support text or one photo/video, optional HTTPS button, preview/recipient count, and confirmation. Audience membership is snapshotted at draft time and rechecked immediately before sending. The dashboard reports only the current active cohort's 7/30-day activity and completion rate. The 7/30-day challenges, weekly league, and one-time buddy links are opt-in and isolated from reading social data.
 
 Membership checks run for bot messages and callbacks, except the `check_join` callback itself and the `account_restore` callback. Required channels come from `REQUIRED_CHANNELS`, defaulting to an empty list if unset. Only successful checks are cached, per process, for 300 seconds. A membership-check Telegram error is treated as not joined. Every update also performs one indexed tombstone lookup (`deleted_accounts`) before handlers run, so deleted users never reach `get_or_create`.
 
