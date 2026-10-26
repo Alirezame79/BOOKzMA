@@ -12,6 +12,10 @@ from BOOKzMA import keyboards, texts
 from BOOKzMA.config import Settings
 from BOOKzMA.handlers.common import render_home
 from BOOKzMA.handlers.onboarding import start_onboarding
+from BOOKzMA.handlers.miswak_social import (
+    INVITE_PREFIX as MISWAK_INVITE_PREFIX,
+    redeem_start_invite,
+)
 from BOOKzMA.middlewares.membership import missing_channels
 from BOOKzMA.db.models import User
 from BOOKzMA.repositories import buddy as buddy_repo
@@ -78,8 +82,30 @@ async def cmd_start(
         tg = message.from_user
         user = await users.get_or_create(session, tg.id, tg.username, tg.full_name)
         await session.commit()
-        if bot is not None and command and command.args and command.args.startswith(INVITE_PREFIX):
-            await _accept_buddy_invite(message, session, bot, command.args, user)
+        if command and command.args:
+            if bot is not None and command.args.startswith(INVITE_PREFIX):
+                await _accept_buddy_invite(message, session, bot, command.args, user)
+            elif command.args.startswith(MISWAK_INVITE_PREFIX):
+                status, inviter_id = await redeem_start_invite(session, user.id, command.args)
+                await session.commit()
+                if status == "inactive":
+                    await message.answer(
+                        texts.MISWAK_BUDDY_INACTIVE,
+                        reply_markup=keyboards.miswak_intro_kb(),
+                    )
+                elif status == "accepted":
+                    await message.answer(texts.MISWAK_BUDDY_ACCEPTED)
+                    if bot is not None and inviter_id is not None:
+                        try:
+                            await bot.send_message(inviter_id, texts.MISWAK_BUDDY_ACCEPTED)
+                        except TelegramAPIError:
+                            log.info("miswak buddy invite notification failed")
+                elif status == "already":
+                    await message.answer(texts.MISWAK_BUDDY_ALREADY)
+                elif status == "self":
+                    await message.answer(texts.MISWAK_BUDDY_SELF)
+                else:
+                    await message.answer(texts.MISWAK_BUDDY_UNAVAILABLE)
         if user.onboarded_at is None:
             await start_onboarding(message, session, state)
             return
@@ -91,7 +117,6 @@ async def cmd_start(
             "از منوی پایین استفاده کن.",
             reply_markup=keyboards.menu_kb(tg.id in settings.admin_ids),
         )
-
 
 @router.callback_query(F.data == "home")
 async def on_home(callback: CallbackQuery, session: AsyncSession, state: FSMContext) -> None:

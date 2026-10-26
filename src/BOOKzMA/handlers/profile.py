@@ -11,6 +11,8 @@ from BOOKzMA.config import Settings
 from BOOKzMA.handlers.common import show
 from BOOKzMA.repositories import badges as badges_repo
 from BOOKzMA.repositories import readings, streak_freezes, users
+from BOOKzMA.repositories import miswak as miswak_repo
+from BOOKzMA.services.miswak import completed_days, current_streak
 from BOOKzMA.services.streak import displayed_streak, longest_streak
 from BOOKzMA.utils import local_today
 
@@ -21,6 +23,13 @@ LEADERBOARD_LIMIT = 10
 async def render_profile(event: Message | CallbackQuery, session: AsyncSession) -> None:
     tg = event.from_user if isinstance(event, Message) else event.from_user
     user = await users.get_or_create(session, tg.id, tg.username, tg.full_name)
+    today = local_today(user.timezone)
+    miswak_profile = await miswak_repo.get_profile(session, user.id, today)
+    miswak_streak = None
+    if miswak_profile is not None and miswak_profile.enabled:
+        miswak_streak = current_streak(
+            completed_days(await miswak_repo.daily_records(session, user.id)), today
+        )
     await session.commit()
     days = await readings.get_days(session, user.id)
     frozen_days = await streak_freezes.used_days(session, user.id)
@@ -38,8 +47,11 @@ async def render_profile(event: Message | CallbackQuery, session: AsyncSession) 
             await streak_freezes.balance(session, user.id),
             user.leaderboard_opt_out,
             await badges_repo.list_for_user(session, user.id),
+            miswak_streak,
         ),
-        keyboards.profile_kb(user.leaderboard_opt_out),
+        keyboards.profile_kb(
+            user.leaderboard_opt_out, miswak_profile is not None and miswak_profile.enabled
+        ),
     )
 
 
@@ -88,10 +100,17 @@ async def on_leaderboard(callback: CallbackQuery, session: AsyncSession) -> None
         callback.from_user.username,
         callback.from_user.full_name,
     )
+    today = local_today(current_user.timezone)
+    miswak_profile = await miswak_repo.get_profile(session, current_user.id, today)
+    await session.commit()
     await callback.answer()
     if isinstance(callback.message, Message):
         await callback.message.edit_text(
-            text, reply_markup=keyboards.profile_kb(current_user.leaderboard_opt_out)
+            text,
+            reply_markup=keyboards.profile_kb(
+                current_user.leaderboard_opt_out,
+                miswak_profile is not None and miswak_profile.enabled,
+            ),
         )
 
 

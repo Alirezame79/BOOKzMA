@@ -5,6 +5,8 @@ from BOOKzMA.handlers import (
     admin,
     buddy,
     onboarding,
+    miswak,
+    miswak_social,
     profile,
     reminders,
     start,
@@ -20,6 +22,8 @@ def get_router() -> Router:
     router.include_routers(
         start.router,
         onboarding.router,
+        miswak.router,
+        miswak_social.router,
         admin.router,
         account.router,
         buddy.router,

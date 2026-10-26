@@ -1,5 +1,6 @@
 import logging
 import re
+from urllib.parse import urlsplit
 
 from aiogram import F, Router
 from aiogram.filters import Command
@@ -20,7 +21,8 @@ MAX_BROADCAST_LENGTH = 3500
 
 
 class NewBroadcast(StatesGroup):
-    waiting_for_text = State()
+    waiting_for_content = State()
+    waiting_for_link = State()
 
 
 def is_admin(user_id: int, settings: Settings) -> bool:
@@ -68,35 +70,128 @@ async def on_broadcast_start(
     if not _authorize(callback.from_user.id, settings, "create_broadcast"):
         await callback.answer("دسترسی نداری.", show_alert=True)
         return
-    await state.set_state(NewBroadcast.waiting_for_text)
+    await state.clear()
+    await callback.answer()
+    await show(
+        callback,
+        "مخاطب این کمپین رو انتخاب کن:",
+        keyboards.broadcast_audience_kb(),
+    )
+
+
+@router.callback_query(F.data.startswith("broadcast:audience:"))
+async def on_broadcast_audience(
+    callback: CallbackQuery, state: FSMContext, settings: Settings
+) -> None:
+    if not _authorize(callback.from_user.id, settings, "select_broadcast_audience"):
+        await callback.answer("دسترسی نداری.", show_alert=True)
+        return
+    match = re.fullmatch(r"broadcast:audience:(all|miswak)", callback.data or "")
+    if match is None:
+        await callback.answer("مخاطب معتبر نیست.", show_alert=True)
+        return
+    await state.update_data(audience=match[1])
+    await state.set_state(NewBroadcast.waiting_for_content)
     await callback.answer()
     if isinstance(callback.message, Message):
         await callback.message.answer(
-            "متن پیام همگانی رو بفرست.\n"
-            f"حداکثر {MAX_BROADCAST_LENGTH} نویسه؛ قبل از ارسال، پیش‌نمایش و تأیید می‌گیری."
+            "متن، عکس یا ویدئوی کمپین رو بفرست.\n"
+            f"متن حداکثر {MAX_BROADCAST_LENGTH} نویسه و کپشن حداکثر ۱۰۰۰ نویسه."
         )
 
 
-@router.message(NewBroadcast.waiting_for_text, F.text)
-async def on_broadcast_text(
+@router.message(NewBroadcast.waiting_for_content, F.text | F.photo | F.video)
+async def on_broadcast_content(
     message: Message, session: AsyncSession, state: FSMContext, settings: Settings
 ) -> None:
     if not message.from_user or not _authorize(message.from_user.id, settings, "draft_broadcast"):
         await state.clear()
         return
-    text = message.text or ""
-    if not text.strip() or len(text) > MAX_BROADCAST_LENGTH:
-        await message.answer("متن خالیه یا از سقف مجاز طولانی‌تره؛ دوباره بفرست.")
+    media_type = None
+    media_file_id = None
+    text = message.text or message.caption or ""
+    if message.photo:
+        media_type = "photo"
+        media_file_id = message.photo[-1].file_id
+    elif message.video:
+        media_type = "video"
+        media_file_id = message.video.file_id
+    max_length = 1000 if media_type else MAX_BROADCAST_LENGTH
+    if (not text.strip() and media_type is None) or len(text) > max_length:
+        await message.answer("محتوا خالیه یا از سقف طول مجاز بیشتره؛ دوباره بفرست.")
         return
+    await state.update_data(text=text, media_type=media_type, media_file_id=media_file_id)
+    await state.set_state(NewBroadcast.waiting_for_link)
+    await message.answer(
+        "اگر دکمهٔ لینک می‌خواهی، آدرس HTTPS را بفرست؛ برای ادامه بدون دکمه «رد» را بفرست."
+    )
+
+
+def _valid_broadcast_url(value: str) -> bool:
+    if len(value) > 2048 or any(ord(char) < 32 for char in value):
+        return False
+    try:
+        parsed = urlsplit(value)
+        return (
+            parsed.scheme == "https"
+            and bool(parsed.hostname)
+            and parsed.username is None
+            and parsed.password is None
+            and parsed.port != 0
+        )
+    except ValueError:
+        return False
+
+
+@router.message(NewBroadcast.waiting_for_link, F.text)
+async def on_broadcast_link(
+    message: Message, session: AsyncSession, state: FSMContext, settings: Settings
+) -> None:
+    if not message.from_user or not _authorize(message.from_user.id, settings, "draft_broadcast"):
+        await state.clear()
+        return
+    raw_link = (message.text or "").strip()
+    button_url = None
+    button_label = None
+    if raw_link.lower() not in {"رد", "بدون لینک"}:
+        if not _valid_broadcast_url(raw_link):
+            await message.answer("فقط لینک HTTPS معتبر بفرست یا «رد» رو انتخاب کن.")
+            return
+        button_url = raw_link
+        button_label = "مشاهده"
+
+    data = await state.get_data()
+    audience = data.get("audience")
+    if audience not in {"all", "miswak"}:
+        await state.clear()
+        await message.answer("پیش‌نویس پیدا نشد؛ از پنل مدیریت دوباره شروع کن.")
+        return
+    text = str(data.get("text", ""))
+    media_type = data.get("media_type")
+    media_file_id = data.get("media_file_id")
     campaign_id, recipient_count = await broadcasts.create(
-        session, message.from_user.id, text
+        session,
+        message.from_user.id,
+        text,
+        audience=audience,
+        media_type=media_type,
+        media_file_id=media_file_id,
+        button_label=button_label,
+        button_url=button_url,
     )
     await session.commit()
     await state.clear()
+    audience_label = "اعضای فعال مسباک" if audience == "miswak" else "همهٔ کاربران"
+    content_label = {"photo": "عکس", "video": "ویدئو"}.get(media_type, "متن")
+    preview = (
+        f"پیش‌نمایش کمپین · {audience_label}\n"
+        f"نوع محتوا: {content_label}\n\n{text or 'بدون کپشن'}\n\n"
+        f"مخاطب هنگام ساخت: {recipient_count} نفر\n"
+        f"دکمهٔ لینک: {'دارد' if button_url else 'ندارد'}\n"
+        "برای شروع ارسال تأیید کن."
+    )
     await message.answer(
-        f"پیش‌نمایش پیام همگانی\n\n{text}\n\n"
-        f"مخاطب‌ها: {recipient_count}\n"
-        "برای شروع ارسال، تأیید کن.",
+        preview,
         reply_markup=keyboards.broadcast_confirm_kb(campaign_id),
         parse_mode=None,
     )

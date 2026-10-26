@@ -6,7 +6,13 @@ from aiogram.types import (
 )
 from urllib.parse import quote, urlencode
 
-from BOOKzMA.constants import DELETE_REASONS, MAX_REMINDERS, PRESET_TIMES, TIMEZONES
+from BOOKzMA.constants import (
+    DELETE_REASONS,
+    MAX_REMINDERS,
+    MISWAK_PRESET_TIMES,
+    PRESET_TIMES,
+    TIMEZONES,
+)
 
 
 def _btn(text: str, data: str) -> InlineKeyboardButton:
@@ -26,14 +32,17 @@ def join_kb(missing: list[str]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def home_kb(read_today: bool) -> InlineKeyboardMarkup:
+def home_kb(read_today: bool, miswak_active: bool = False) -> InlineKeyboardMarkup:
     read_text = "✅ امروز ثبت شد" if read_today else "📖 امروز خوندم"
+    rows = [
+        [_btn(read_text, "read")],
+        [_btn("📊 خلاصهٔ هفتگی", "weekly")],
+        [_btn("⏰ یادآورها", "rem"), _btn("🌍 منطقه زمانی", "tz")],
+    ]
+    if miswak_active:
+        rows.append([_btn("🪥 استریک مسباک", "miswak:open")])
     return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [_btn(read_text, "read")],
-            [_btn("📊 خلاصهٔ هفتگی", "weekly")],
-            [_btn("⏰ یادآورها", "rem"), _btn("🌍 منطقه زمانی", "tz")],
-        ]
+        inline_keyboard=rows
     )
 
 
@@ -42,6 +51,7 @@ def menu_kb(is_admin: bool = False) -> ReplyKeyboardMarkup:
         [KeyboardButton(text="🏠 خانه"), KeyboardButton(text="👤 پروفایل")],
         [KeyboardButton(text="⏰ یادآورها"), KeyboardButton(text="🌍 منطقه زمانی")],
         [KeyboardButton(text="🤝 رفیق مطالعه")],
+        [KeyboardButton(text="🪥 مسباک")],
         [KeyboardButton(text="💚 حمایت از پروژه")],
     ]
     if is_admin:
@@ -49,16 +59,16 @@ def menu_kb(is_admin: bool = False) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
 
-def profile_kb(opt_out: bool) -> InlineKeyboardMarkup:
+def profile_kb(opt_out: bool, miswak_active: bool = False) -> InlineKeyboardMarkup:
     toggle_text = "➖ خروج از لیدربورد" if not opt_out else "➕ حضور در لیدربورد"
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [_btn(toggle_text, "leaderboard:toggle")],
-            [_btn("🏅 لیدربورد استریک", "leaderboard")],
-            [_btn("🗑 حذف حساب", "account_del:start")],
-            [_btn("🏠 منوی اصلی", "home")],
-        ]
-    )
+    rows = [
+        [_btn(toggle_text, "leaderboard:toggle")],
+        [_btn("🏅 لیدربورد استریک", "leaderboard")],
+    ]
+    if miswak_active:
+        rows.append([_btn("🪥 استریک مسباک", "miswak:open")])
+    rows.extend([[_btn("🗑 حذف حساب", "account_del:start")], [_btn("🏠 منوی اصلی", "home")]])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def account_delete_warn_kb() -> InlineKeyboardMarkup:
@@ -115,6 +125,16 @@ def admin_kb() -> InlineKeyboardMarkup:
     )
 
 
+def broadcast_audience_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_btn("👥 همهٔ کاربران", "broadcast:audience:all")],
+            [_btn("🪥 اعضای فعال مسباک", "broadcast:audience:miswak")],
+            [_btn("🔙 برگشت", "admin:stats")],
+        ]
+    )
+
+
 def broadcast_confirm_kb(campaign_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -131,6 +151,127 @@ def broadcast_cancel_kb(campaign_id: int) -> InlineKeyboardMarkup:
             [_btn("⏹ لغو ارسال", f"broadcast:cancel:{campaign_id}")],
         ]
     )
+
+
+def miswak_intro_kb() -> InlineKeyboardMarkup:
+    rows = [
+        [_btn(f"شروع با هدف {goal} نوبت در روز", f"miswak:join:{goal}")]
+        for goal in range(1, 6)
+    ]
+    rows.append([_btn("🏠 منوی اصلی", "home")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def miswak_goal_kb() -> InlineKeyboardMarkup:
+    rows = _chunk([_btn(str(goal), f"miswak:goal:{goal}") for goal in range(1, 6)], 5)
+    rows.append([_btn("🔙 برگشت", "miswak:open")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def miswak_screen_kb(
+    goal: int,
+    reminders: list[tuple[int, str]],
+    completed_slots: set[int],
+    today: str,
+    enabled: bool,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    reminder_times = dict(reminders)
+    for slot in range(1, goal + 1):
+        if slot in completed_slots:
+            rows.append([_btn(f"✅ نوبت {slot} ثبت شد", "miswak:open")])
+        else:
+            rows.append(
+                [_btn(f"ثبت نوبت {slot}", f"miswak:done:{today}:{slot}")]
+            )
+        rows.append(
+            [_btn(f"⏰ نوبت {slot}: {reminder_times.get(slot, 'تنظیم نشده')} · تغییر ساعت",
+                  f"miswak:time:{slot}")]
+        )
+    rows.append(
+        [_btn("📊 گزارش ۷ روز", "miswak:weekly"), _btn("📅 گزارش ۳۰ روز", "miswak:monthly")]
+    )
+    rows.append(
+        [_btn("🏁 چالش ۷ روز", "miswak:challenge:start:7"),
+         _btn("🏁 چالش ۳۰ روز", "miswak:challenge:start:30")]
+    )
+    rows.append([_btn("🏆 لیگ مسباک", "miswak:league"), _btn("🤝 رفیق مسباک", "miswak:buddies")])
+    rows.append([_btn("🎯 تغییر هدف روزانه", "miswak:choose_goal")])
+    if enabled:
+        rows.append([_btn("خروج از بخش مسباک", "miswak:exit")])
+    rows.append([_btn("🏠 منوی اصلی", "home")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def miswak_time_kb(slot: int, existing: set[str]) -> InlineKeyboardMarkup:
+    presets = [
+        _btn(value, f"miswak:settime:{slot}:{value.replace(':', '')}")
+        for value in MISWAK_PRESET_TIMES
+        if value not in existing
+    ]
+    rows = _chunk(presets, 3)
+    rows.append([_btn("✏️ ساعت دلخواه", f"miswak:customtime:{slot}")])
+    rows.append([_btn("🔙 برگشت", "miswak:open")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def miswak_cancel_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[_btn("🔙 انصراف", "miswak:open")]])
+
+
+def miswak_reminder_push_kb(day: str, slot: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[_btn("✅ ثبت این نوبت", f"miswak:done:{day}:{slot}")]]
+    )
+
+
+def miswak_challenge_kb(active: bool) -> InlineKeyboardMarkup:
+    rows = []
+    if active:
+        rows.append([_btn("لغو چالش", "miswak:challenge:cancel")])
+    rows.append([_btn("🔙 برگشت", "miswak:open")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def miswak_league_kb(opted_in: bool) -> InlineKeyboardMarkup:
+    label = "➖ خروج از لیگ" if opted_in else "➕ عضویت در لیگ"
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_btn(label, "miswak:league:toggle")],
+            [_btn("🔙 برگشت", "miswak:open")],
+        ]
+    )
+
+
+def miswak_buddy_invite_kb(share_url: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📨 فرستادن برای دوست", url=share_url)],
+            [_btn("🔙 برگشت", "miswak:buddies")],
+        ]
+    )
+
+
+def miswak_buddy_list_kb(rows: list[tuple[int, str]]) -> InlineKeyboardMarkup:
+    buttons = [
+        _btn(
+            f"🔔 {(name.replace(chr(10), ' ').replace(chr(13), ' ').strip() or 'کاربر')[:40]}",
+            f"miswak:buddy:nudge:{pair_id}",
+        )
+        for pair_id, name in rows
+    ]
+    keyboard = _chunk(buttons, 1)
+    keyboard.extend(
+        [[_btn(f"👋 پایان رفاقت {pair_id}", f"miswak:buddy:end:{pair_id}")]
+         for pair_id, _name in rows]
+    )
+    keyboard.extend(
+        [
+            [_btn("🔗 دعوت دوست", "miswak:buddy:invite")],
+            [_btn("🔙 برگشت", "miswak:open")],
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def reminders_kb(items: list[tuple[int, str]]) -> InlineKeyboardMarkup:
@@ -176,6 +317,7 @@ def onboarding_time_kb() -> InlineKeyboardMarkup:
     presets = [_btn(f"⏰ {t}", f"onb:{t.replace(':', '')}") for t in PRESET_TIMES]
     rows = _chunk(presets, 2)
     rows.append([_btn("فعلاً نه", "onb:skip")])
+    rows.append([_btn("🪥 فقط استفاده از مسباک", "miswak:open")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 

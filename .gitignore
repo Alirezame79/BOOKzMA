@@ -24,4 +24,3 @@ logs/
 .vscode/
 .idea/
 .DS_Store
-dev_run.py

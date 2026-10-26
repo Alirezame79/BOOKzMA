@@ -74,9 +74,9 @@ Each entry records current intent, not a claim that future work is implemented.
 
 ## D-07 — Durable Single-Process Broadcast
 
-**Status:** Implemented for text campaigns.
+**Status:** Implemented for text and single-media campaigns.
 
-**Decision:** Admins preview and confirm text-only campaigns. The DB stores campaign and recipient states; a single worker sends at 10/s, handles bounded retry and Telegram `RetryAfter`, and resumes inflight deliveries after restart. Since Telegram send and DB commit cannot be atomic, a crash in between may duplicate one message. Only one active campaign is allowed in the current single-process deployment.
+**Decision:** Admins preview and confirm campaigns containing text or one photo/video, with an optional HTTPS button. The DB stores selected audience and per-recipient states; a single worker sends at 5/s, rechecks cohort eligibility before delivery, handles bounded retry and Telegram `RetryAfter`, and resumes inflight deliveries after restart. Since Telegram send and DB commit cannot be atomic, a crash in between may duplicate one message. Only one active campaign is allowed in the current single-process deployment.
 
 ## D-08 — Analytics Observation Window
 
@@ -94,6 +94,16 @@ Each entry records current intent, not a claim that future work is implemented.
 
 **Revisit when:** The owner requests reusable/group invitations, invitation analytics, or pairing behavior that replaces an existing buddy.
 
+## D-10 — Independent Miswak Habit and Cohort
+
+**Status:** Implementing as an opt-in Telegram feature.
+
+**Decision:** Keep goals, occurrence logs, streaks, reminders, badges, challenges, league membership, and buddy pairs separate from reading tables and streak calculations. A day is complete only after reaching the user's 1–5 occurrence goal. Goal changes take effect on the next local date. Each occurrence is unique per user/local day/slot. Joining the section explicitly opts into possible education campaigns from the admin; leaving disables reminders and future campaign eligibility but preserves history. Admin campaigns snapshot their selected cohort and recheck active membership before each send. No API endpoints are added.
+
+**Why:** The feature serves users who may not use book tracking and gives the owner an explicit, auditable education cohort without conflating unrelated activity or exposing social data publicly.
+
+**Revisit when:** Owners request a separate education preference, shared/group challenges, or a second client requiring API support.
+
 ## Open Decisions (Owner Only)
 
 - Exact rules for weekly reading targets and rest days.
@@ -107,3 +117,4 @@ Each entry records current intent, not a claim that future work is implemented.
 - Whether to add a `MenuButton` beyond scoped commands and the persistent reply keyboard, and the final combination of command menu and reply keyboard at `/start` (N-01, U-01).
 - Whether a web admin panel is built and up to which tier (W-01..W-03), tied to revisiting the FastAPI decision D-01.
 - Brand tone of voice: how casual versus formal (N-07).
+- Exact policy for what a non-existent local reminder time does during DST: current implementation skips that occurrence on that date.
