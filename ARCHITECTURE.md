@@ -7,9 +7,10 @@ This repository contains a Persian Telegram reading bot and a FastAPI HTTP API. 
 - `src/BOOKzMA/__main__.py` starts `BOOKzMA.api:create_app` through Uvicorn. `Dockerfile` uses the same factory and binds port 8000 inside the container.
 - `create_app()` runs Alembic upgrades at startup by default, creates an async SQLAlchemy engine/session pool, and starts the bot unless its factory options disable those behaviors.
 - `bot.py` creates an aiogram `Dispatcher`, registers `DbSessionMiddleware` at update scope, and registers `MembershipMiddleware` for messages and callback queries. The middleware exempts configured admin IDs from the membership gate and records UTC daily interaction. The bot scopes `/admin` to admins and starts polling, reminder, and durable broadcast tasks.
-- Bot handlers live in `handlers/`; API routes are declared inside `api.create_app()`. Both paths call repositories directly and commit their own writes. `services/streak.py` contains date-based calculations; the reminder scheduler is asynchronous but depends on aiogram and repositories.
+- Bot handlers live in `handlers/`; API routes are declared inside `api.create_app()`. Both paths call repositories directly and commit their own writes. `services/streak.py` contains date-based calculations; the reminder scheduler is asynchronous but depends on aiogram and repositories. `services/backup.py` runs `pg_dump`/`pg_restore` subprocesses against the database (installed as `postgresql-client` in the image) and owns backup naming, validation, and local rotation; the destructive-restore flow lives in the admin handler.
 - `repositories/` contains SQLAlchemy queries and PostgreSQL upserts. `db/` contains the declarative base, models, and async session-pool factory.
 - `texts.py` holds user-facing Persian bot messages; `keyboards.py` constructs inline keyboards.
+- `scripts/backup.py` and `scripts/restore.py` are stdlib-only host-side tools (not part of the image): the daily cron backup with optional Google Drive upload via `rclone`, and restore rehearsal against a temporary database. They share the backup-folder contract with the in-app service but do not import application code.
 
 ## Data and State
 
@@ -27,7 +28,7 @@ This repository contains a Persian Telegram reading bot and a FastAPI HTTP API. 
 
 ## Local and Production
 
-Production Compose runs PostgreSQL and the API/bot application together as containers. The host publishes PostgreSQL on `127.0.0.1:5433` and the application on `127.0.0.1:8000`. The Docker image runs as UID 10001 and copies only requirements, `src/`, `migrations/`, and `alembic.ini`.
+Production Compose runs PostgreSQL and the API/bot application together as containers. The host publishes PostgreSQL on `127.0.0.1:5433` and the application on `127.0.0.1:8000`. The Docker image runs as UID 10001 and copies only requirements, `src/`, `migrations/`, and `alembic.ini`. The bot container also bind-mounts `BOOKZMA_BACKUP_DIR` at `/backups` for database backups; the folder must exist on the host, be outside the repository, and be writable by UID 10001.
 
 The owner reports that local development starts the database with Compose and runs a separate local launcher, `dev_run.py`, using a separate test bot token and local proxy settings. That file is intentionally ignored and was not opened; its implementation is therefore unverified. See [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md) before changing entrypoints, configuration, or deployment.
 

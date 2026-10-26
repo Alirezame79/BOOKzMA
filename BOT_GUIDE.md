@@ -30,13 +30,20 @@ Callback payloads implemented in handlers/keyboards:
 | `account_restore` | Explicit re-registration: clear the deletion tombstone and start fresh |
 | `admin:stats` | Show admin analytics; server-side admin check required |
 | `admin:broadcast` | Start a text campaign draft; server-side admin check required |
+| `admin:backup` | Open the backup menu (latest backup, on-demand backup, restore); server-side admin check required |
+| `admin:backup_now` | Run an on-demand `pg_dump` through `services/backup.py`; server-side admin check required |
+| `admin:backup_restore` | List local backup files; server-side admin check required |
+| `admin:restore_ask:<index>` | Show the destructive-restore warning for the listed backup (index into the current `list_backups` order, never free text) |
+| `admin:restore_ready:<index>` | Ask for the typed confirmation word and arm the restore FSM state |
 | `broadcast:start:<id>` | Confirm an owned campaign |
 | `broadcast:status:<id>` | Show counts for an owned campaign |
 | `broadcast:cancel:<id>` | Cancel an owned campaign |
 
-FSM states are `handlers.reminders.AddTime.waiting`, `handlers.admin.NewBroadcast.waiting_for_text`, and `handlers.account.DeleteAccount.waiting_word`; FSM storage remains in-memory. Arbitrary reminder times are parsed as 24-hour `HH[:MM]` with Persian or Arabic digits accepted.
+FSM states are `handlers.reminders.AddTime.waiting`, `handlers.admin.NewBroadcast.waiting_for_text`, `handlers.admin.BackupRestore.waiting_for_confirm`, and `handlers.account.DeleteAccount.waiting_word`; FSM storage remains in-memory. Arbitrary reminder times are parsed as 24-hour `HH[:MM]` with Persian or Arabic digits accepted.
 
 Account deletion (`N-04`) is a four-step wizard started from the profile: a warning screen, a deletion-reason choice, a typed confirmation word (`حذف`), and a final button. Deletion removes the `users` row (cascading to all related tables) and inserts a `deleted_accounts` tombstone in the same transaction. The membership middleware intercepts tombstoned users before handlers run — they get a neutral start prompt (no mention of a previous account) and no activity or start is recorded for them; the `account_restore` callback clears the tombstone. The API exposes the same behavior through `DELETE /api/v1/me`, and authenticated requests for tombstoned users return 401 until they re-register via the bot.
+
+Database backup and restore (`N-05`, decision D-09): the admin panel's backup section runs `pg_dump -Fc` over TCP to the database from inside the bot container (the image installs `postgresql-client`) into `BACKUP_DIR` (`/backups` in Compose, bind-mounted from `BOOKZMA_BACKUP_DIR` on the host), keeping only `BACKUP_KEEP_LOCAL` (default 1) newest dumps named `bookzma-YYYY-MM-DD-HHMMSS.dump`. Restore is destructive: warning screen, typed confirmation word (`بازیابی`), then `pg_restore --clean --no-owner --no-acl` against the current database; a restart (`docker compose restart bot`) is recommended afterwards and stated in the completion message. Restore file names are validated against the backup-name pattern (no path traversal) and can only be selected by index from the real file listing. All backup callbacks re-check the admin allowlist server-side. Daily scheduling and Google Drive upload are host-side (`scripts/backup.py`); see [docs/BACKUP.md](docs/BACKUP.md) for the runbook.
 
 ## HTTP API
 
@@ -88,6 +95,9 @@ Membership checks run for bot messages and callbacks, except the `check_join` ca
 | `ADMIN_TELEGRAM_IDS` | `Settings` / bot | Optional comma-separated numeric Telegram IDs; empty means no admins |
 | `GITHUB_URL` | `Settings` / support menu | Optional GitHub project URL; only GitHub repository URLs are shown |
 | `SUPPORT_TELEGRAM_USERNAME` | `Settings` / support menu | Optional Telegram username for private financial-support contact |
+| `BOOKZMA_BACKUP_DIR` | Compose | Required by Compose; host folder bind-mounted into the bot at `/backups`; must be outside the repository |
+| `BACKUP_DIR` | `Settings` / backup service | Backup folder inside the container; defaults to `/backups` |
+| `BACKUP_KEEP_LOCAL` | `Settings` / backup service | Number of newest local backups to keep after rotation; defaults to 1 |
 | `LOG_LEVEL` | `Settings` | Defaults to `INFO`; no logging configuration consuming it was found |
 
 `.env.sample` documents the variables above and an optional placeholder `DATABASE_URL` for local tools. Set the real owner ID and support destinations in the runtime environment; do not commit them. Code supplies a default database URL and Compose overrides it for the bot container.
