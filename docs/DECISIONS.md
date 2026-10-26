@@ -88,6 +88,18 @@ Each entry records current intent, not a claim that future work is implemented.
 
 **Decision:** Daily logical backup with `pg_dump -Fc`. Host cron runs `scripts/backup.py` daily at 03:30; the admin panel can also take an on-demand backup and run a two-step-confirmed restore. Local retention keeps only the newest backup on the small server (`BACKUP_KEEP_LOCAL=1`); Google Drive (via host-side `rclone`) keeps 14 daily generations. Backups live in `BOOKZMA_BACKUP_DIR` outside the repository and are bind-mounted into the bot container at `/backups`. File encryption and other off-site mechanisms remain future work under L-02. Periodic restore rehearsal is an owner task; `scripts/restore.py` supports rehearsing against a temporary database.
 
+## D-10 — In-Process Rate Limiting (F-08)
+
+**Status:** Implemented (2026-10-25).
+
+**Decision:** Bot anti-spam is a per-process in-memory middleware (`middlewares/rate_limit.py`) using a fixed window per user across messages and callback queries (`RATE_LIMIT_MAX_UPDATES`, default 20 per `RATE_LIMIT_WINDOW_SECONDS`, default 10). Admins are exempt; blocked updates never reach handlers or the DB session; the warning text is sent at most once per window. No Redis and no shared store.
+
+**Why:** The deployment is a single application instance (D-04), so process-local state is correct and keeps the feature dependency-free. Rate-limit hits are operational events, not user engagement, so they are logged with `log.warning` and deliberately excluded from admin KPIs and `activity_days`.
+
+**Alternatives considered:** Redis-based token bucket (rejected: new infrastructure for a single-process deployment); Telegram-side `reply_markup` only (rejected: does not stop handler floods); per-chat limits (rejected: group chats are not part of current flows).
+
+**Revisit when:** More than one application instance runs, or a heavy feature needs finer-grained quotas per command/callback.
+
 ## Open Decisions (Owner Only)
 
 - Exact rules for weekly reading targets and rest days.

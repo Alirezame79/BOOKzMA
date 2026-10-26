@@ -11,6 +11,7 @@ from BOOKzMA.config import Settings
 from BOOKzMA.handlers import get_router
 from BOOKzMA.middlewares.db import DbSessionMiddleware
 from BOOKzMA.middlewares.membership import MembershipMiddleware
+from BOOKzMA.middlewares.rate_limit import RateLimitMiddleware
 from BOOKzMA.services.scheduler import reminder_loop
 from BOOKzMA.services.broadcast import broadcast_loop
 
@@ -34,7 +35,16 @@ async def start_bot(settings: Settings, session_pool) -> tuple[Bot, list[asyncio
 
     dp = Dispatcher()
     membership = MembershipMiddleware(settings.admin_ids)
+    rate_limit = RateLimitMiddleware(
+        settings.rate_limit_max_updates,
+        settings.rate_limit_window_seconds,
+        settings.admin_ids,
+    )
     dp.update.outer_middleware(DbSessionMiddleware(session_pool))
+    # لایمیت ارزان‌ترین گیت است و باید قبل از بقیه اجرا شود؛ روی آپدیتِ مسدودشده
+    # نه هندلر اجرا می‌شود نه session باز می‌شود.
+    dp.message.outer_middleware(rate_limit)
+    dp.callback_query.outer_middleware(rate_limit)
     dp.message.outer_middleware(membership)
     dp.callback_query.outer_middleware(membership)
     dp.workflow_data["settings"] = settings

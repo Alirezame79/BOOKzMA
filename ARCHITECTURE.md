@@ -6,7 +6,7 @@ This repository contains a Persian Telegram reading bot and a FastAPI HTTP API. 
 
 - `src/BOOKzMA/__main__.py` starts `BOOKzMA.api:create_app` through Uvicorn. `Dockerfile` uses the same factory and binds port 8000 inside the container.
 - `create_app()` runs Alembic upgrades at startup by default, creates an async SQLAlchemy engine/session pool, and starts the bot unless its factory options disable those behaviors.
-- `bot.py` creates an aiogram `Dispatcher`, registers `DbSessionMiddleware` at update scope, and registers `MembershipMiddleware` for messages and callback queries. The middleware exempts configured admin IDs from the membership gate and records UTC daily interaction. The bot scopes `/admin` to admins and starts polling, reminder, and durable broadcast tasks.
+- `bot.py` creates an aiogram `Dispatcher`, registers `DbSessionMiddleware` at update scope, and registers `RateLimitMiddleware` before `MembershipMiddleware` for messages and callback queries. The rate-limit middleware is a per-process in-memory fixed window (D-10) that swallows blocked updates before the DB session opens; the membership middleware exempts configured admin IDs from the membership gate and records UTC daily interaction. The bot scopes `/admin` to admins and starts polling, reminder, and durable broadcast tasks.
 - Bot handlers live in `handlers/`; API routes are declared inside `api.create_app()`. Both paths call repositories directly and commit their own writes. `services/streak.py` contains date-based calculations; the reminder scheduler is asynchronous but depends on aiogram and repositories. `services/backup.py` runs `pg_dump`/`pg_restore` subprocesses against the database (installed as `postgresql-client` in the image) and owns backup naming, validation, and local rotation; the destructive-restore flow lives in the admin handler.
 - `repositories/` contains SQLAlchemy queries and PostgreSQL upserts. `db/` contains the declarative base, models, and async session-pool factory.
 - `texts.py` holds user-facing Persian bot messages; `keyboards.py` constructs inline keyboards.
@@ -23,7 +23,7 @@ This repository contains a Persian Telegram reading bot and a FastAPI HTTP API. 
 ## Operational Limits
 
 - `reminder_loop` checks reminders in the same process as the bot and may perform additional database queries per candidate. Detailed timing and retry behavior are in [BOT_GUIDE.md](BOT_GUIDE.md); the observed query hot path is in [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
-- Polling, reminder/broadcast tasks, FSM state, membership cache, and the broadcast start lock are process-local. The current deployment is designed for one application instance; replicas would duplicate polling and background work and would not share FSM/cache/lock state.
+- Polling, reminder/broadcast tasks, FSM state, membership cache, rate-limit windows, and the broadcast start lock are process-local. The current deployment is designed for one application instance; replicas would duplicate polling and background work and would not share FSM/cache/lock state.
 - The API health endpoint reports process-level `{"status":"ok"}` and does not verify database or Telegram availability.
 
 ## Local and Production
