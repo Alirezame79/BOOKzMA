@@ -93,7 +93,7 @@ async def on_broadcast_audience(
     if not _authorize(callback.from_user.id, settings, "select_broadcast_audience"):
         await callback.answer("دسترسی نداری.", show_alert=True)
         return
-    match = re.fullmatch(r"broadcast:audience:(all|miswak)", callback.data or "")
+    match = re.fullmatch(r"broadcast:audience:(all|mesbak|mesbak)", callback.data or "")
     if match is None:
         await callback.answer("مخاطب معتبر نیست.", show_alert=True)
         return
@@ -169,7 +169,9 @@ async def on_broadcast_link(
 
     data = await state.get_data()
     audience = data.get("audience")
-    if audience not in {"all", "miswak"}:
+    if audience == "mesbak":
+        audience = "mesbak"
+    if audience not in {"all", "mesbak"}:
         await state.clear()
         await message.answer("پیش‌نویس پیدا نشد؛ از پنل مدیریت دوباره شروع کن.")
         return
@@ -188,7 +190,7 @@ async def on_broadcast_link(
     )
     await session.commit()
     await state.clear()
-    audience_label = "اعضای فعال مسباک" if audience == "miswak" else "همهٔ کاربران"
+    audience_label = "اعضای فعال مسباک" if audience == "mesbak" else "همهٔ کاربران"
     content_label = {"photo": "عکس", "video": "ویدئو"}.get(media_type, "متن")
     preview = (
         f"پیش‌نمایش کمپین · {audience_label}\n"
@@ -329,7 +331,9 @@ async def on_backup_now(callback: CallbackQuery, settings: Settings) -> None:
             await callback.message.answer(texts.BACKUP_FAILED)
         return
     if isinstance(callback.message, Message):
-        await callback.message.answer(texts.backup_done(info.name, info.size_bytes))
+        await callback.message.answer(
+            texts.backup_done(info.name, info.size_bytes, str(info.path))
+        )
 
 
 @router.callback_query(F.data == "admin:backup_restore")

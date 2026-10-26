@@ -55,8 +55,9 @@ def test_pairing_queue_end_and_rematch():
 
             # نفر سوم و کاربر آزادشده دوباره جفت می‌شوند
             async with session_pool.begin() as session:
+                await buddy_repo.join_queue(session, uid_a)
                 await buddy_repo.join_queue(session, uid_c)
-                assert await buddy_repo.try_match(session, uid_c) in (uid_a, uid_b)
+                assert await buddy_repo.try_match(session, uid_c) == uid_a
 
             async with session_pool() as session:
                 stats = await analytics.dashboard(session, date(2026, 10, 25))
@@ -78,6 +79,7 @@ def test_nudge_cap_is_once_per_day_and_per_pair():
         try:
             async with session_pool.begin() as session:
                 session.add_all(User(id=uid) for uid in (uid_a, uid_b))
+                await session.flush()
                 session.add(BuddyPair(user_a=min(uid_a, uid_b), user_b=max(uid_a, uid_b)))
 
             async with session_pool.begin() as session:
@@ -107,6 +109,7 @@ def test_account_deletion_cascades_pair_and_queue():
         try:
             async with session_pool.begin() as session:
                 session.add_all(User(id=uid) for uid in (uid_a, uid_b))
+                await session.flush()
                 session.add(BuddyQueue(user_id=uid_a))
                 session.add(BuddyPair(user_a=min(uid_a, uid_b), user_b=max(uid_a, uid_b)))
                 session.add(
@@ -208,7 +211,8 @@ def test_invite_is_one_time_and_busy_users_keep_their_state():
                 assert await buddy_repo.create_invite(
                     session, uid_a, token_a, now - timedelta(seconds=1)
                 )
-                assert await buddy_repo.redeem_invite(session, token_a, uid_a, now) == (
+                # توکن منقضی حتی برای غیر از دعوت‌کننده هم نامعتبر است
+                assert await buddy_repo.redeem_invite(session, token_a, uid_b, now) == (
                     "invalid",
                     None,
                 )
@@ -229,6 +233,7 @@ def test_user_can_keep_multiple_buddies_while_joining_anonymous_queue():
         try:
             async with session_pool.begin() as session:
                 session.add_all(User(id=uid) for uid in (uid_a, uid_b, uid_c))
+                await session.flush()
                 session.add_all(
                     [
                         BuddyPair(user_a=min(uid_a, uid_b), user_b=max(uid_a, uid_b)),
@@ -261,6 +266,7 @@ def test_anonymous_queue_skips_existing_buddies():
         try:
             async with session_pool.begin() as session:
                 session.add_all(User(id=uid) for uid in (uid_a, uid_b, uid_c))
+                await session.flush()
                 session.add(BuddyPair(user_a=min(uid_a, uid_b), user_b=max(uid_a, uid_b)))
 
             async with session_pool.begin() as session:
@@ -296,6 +302,7 @@ def test_bulk_read_status_uses_each_buddys_local_day():
         try:
             async with session_pool.begin() as session:
                 session.add_all([User(id=uid_a), User(id=uid_b)])
+                await session.flush()
                 session.add_all(
                     [ReadingLog(user_id=uid_a, day=day_a), ReadingLog(user_id=uid_b, day=day_b)]
                 )

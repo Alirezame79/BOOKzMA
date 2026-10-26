@@ -25,6 +25,7 @@ def test_dashboard_reports_comeback_and_risk_kpis():
         try:
             async with session_pool.begin() as session:
                 session.add(User(id=user_id, comeback_bonus_days=5))
+                await session.flush()
                 session.add(StreakAlert(user_id=user_id, day=today))
                 session.add(StreakAlert(user_id=user_id, day=today - timedelta(days=1)))
 

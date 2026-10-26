@@ -1,3 +1,5 @@
+from html import escape
+
 from BOOKzMA.constants import MAX_REMINDERS, MILESTONES
 from BOOKzMA.services.backup import BackupInfo
 from BOOKzMA.services.badges import badge_label
@@ -109,8 +111,12 @@ BACKUP_FAILED = "❌ گرفتن بکاپ ناموفق بود. جزئیات در 
 RESTORE_FAILED = "❌ بازگردانی ناموفق بود. جزئیات در لاگ سرور."
 
 
-def backup_done(name: str, size_bytes: int) -> str:
-    return f"✅ بکاپ گرفته شد: <code>{name}</code>\nحجم: {_fa_size(size_bytes)}"
+def backup_done(name: str, size_bytes: int, path: str) -> str:
+    return (
+        f"✅ بکاپ گرفته شد: <code>{escape(name)}</code>\n"
+        f"حجم: {_fa_size(size_bytes)}\n"
+        f"مسیر برنامه: <code>{escape(path)}</code>"
+    )
 
 
 def admin_backup_hint() -> str:
@@ -239,7 +245,7 @@ def home(
     strip: str,
     read_today: bool,
     freeze_balance: int,
-    miswak_streak: int | None = None,
+    mesbak_streak: int | None = None,
 ) -> str:
     if streak:
         streak_line = f"🔥 <b>{fa(streak)}</b> روز پشت‌سرهم"
@@ -262,8 +268,8 @@ def home(
         f"{strip}\n\n"
         f"{status}"
     )
-    if miswak_streak is not None:
-        result += f"\n\n🪥 استریک مسباک: {fa(miswak_streak)} روز"
+    if mesbak_streak is not None:
+        result += f"\n\n🪥 استریک مسباک: {fa(mesbak_streak)} روز"
     return result
 
 
@@ -359,7 +365,7 @@ def profile(
     freeze_balance: int,
     opted_out: bool,
     badges: list[str],
-    miswak_streak: int | None = None,
+    mesbak_streak: int | None = None,
 ) -> str:
     participation = "خاموش" if opted_out else "روشن"
     if badges:
@@ -374,8 +380,8 @@ def profile(
         f"🏅 حضور در لیدربورد: {participation}\n\n"
         f"🎖 نشان‌ها: {badges_line}"
     )
-    if miswak_streak is not None:
-        result += f"\n🪥 استریک مسباک: {fa(miswak_streak)} روز"
+    if mesbak_streak is not None:
+        result += f"\n🪥 استریک مسباک: {fa(mesbak_streak)} روز"
     return result
 
 
@@ -412,10 +418,12 @@ def admin_dashboard(stats: dict[str, int], series: list[tuple[object, int]]) -> 
         f"بیشترین جاری/رکورد: {fa(stats['max_current_streak'])} / "
         f"{fa(stats['max_record_streak'])} روز\n"
         f"⏰ یادآورها: {fa(stats['reminders'])}\n"
-        f"🪥 مسباک · عضو فعال: {fa(stats['miswak_members'])} · فعال ۷/۳۰ روز: "
-        f"{fa(stats['miswak_active_7d'])}/{fa(stats['miswak_active_30d'])} · "
-        f"تکمیل هدف ۷روزه: {fa(stats['miswak_completed_days_7d'])} روز، "
-        f"{fa(stats['miswak_completion_rate_7d'])}% از روزهای دارای ثبت\n"
+        f"🪥 مسباک · عضو فعال: {fa(stats['mesbak_members'])} · فعال ۷/۳۰ روز: "
+        f"{fa(stats['mesbak_active_7d'])}/{fa(stats['mesbak_active_30d'])} · "
+        f"تکمیل هدف ۷روزه: {fa(stats['mesbak_completed_days_7d'])} روز، "
+        f"{fa(stats['mesbak_completion_rate_7d'])}% از روزهای دارای ثبت\n"
+        f"🤝 رفیق ناشناس مسباک · جفت فعال: {fa(stats['mesbak_random_pairs'])} · "
+        f"منتظر در صف: {fa(stats['mesbak_random_waiting'])}\n"
         f"🛡️ فریزهای مصرف‌شده: {fa(stats['freezes_used'])}\n"
         f"⚠️ هشدار «استریک در خطر» در ۷ روز: {fa(stats['streak_alerts_7d'])}\n"
         f"🔁 کاربران با پاداش comeback: {fa(stats['comeback_users'])}\n"
@@ -437,7 +445,7 @@ def reminder_push(streak: int) -> str:
     return "⏰ <b>وقت مطالعه‌ست!</b>\nامروز یه استریک جدید شروع کن 🔥"
 
 
-MISWAK_INTRO = (
+mesbak_INTRO = (
     "🪥 <b>بخش مسباک</b>\n\n"
     "هدفت رو از ۱ تا ۵ نوبت در روز انتخاب کن؛ برای هر نوبت یک یادآور داری و فقط با کامل‌کردن "
     "هدفت استریک می‌گیری.\n\n"
@@ -445,17 +453,17 @@ MISWAK_INTRO = (
     "هر وقت خواستی از بخش خارج شو.\n\n"
     "این بخش کاملاً جدا از استریک مطالعه است."
 )
-MISWAK_BAD_TIME = "ساعت درست نیست؛ مثلاً <code>06:30</code> یا <code>۷:۴۵</code> بفرست."
-MISWAK_JOINED = "بخش مسباک برایت فعال شد ✅"
-MISWAK_EXITED = "از بخش مسباک خارج شدی؛ یادآورها و آموزش‌های بعدی متوقف شدند. سابقه‌ات محفوظ است."
-MISWAK_RECORDED = "این نوبت ثبت شد ✅"
-MISWAK_DUPLICATE = "این نوبت امروز قبلاً ثبت شده ✅"
-MISWAK_INACTIVE = "برای ثبت نوبت، اول به بخش مسباک بپیوند."
-MISWAK_STALE_ACTION = "این دکمه برای روز دیگری است؛ صفحه را دوباره باز کن."
-MISWAK_REMINDER = "⏰ وقت نوبت {slot} مسباکه؛ بعد از انجام، اینجا ثبتش کن."
+mesbak_BAD_TIME = "ساعت درست نیست؛ مثلاً <code>06:30</code> یا <code>۷:۴۵</code> بفرست."
+mesbak_JOINED = "بخش مسباک برایت فعال شد ✅"
+mesbak_EXITED = "از بخش مسباک خارج شدی؛ یادآورها و آموزش‌های بعدی متوقف شدند. سابقه‌ات محفوظ است."
+mesbak_RECORDED = "این نوبت ثبت شد ✅"
+mesbak_DUPLICATE = "این نوبت امروز قبلاً ثبت شده ✅"
+mesbak_INACTIVE = "برای ثبت نوبت، اول به بخش مسباک بپیوند."
+mesbak_STALE_ACTION = "این دکمه برای روز دیگری است؛ صفحه را دوباره باز کن."
+mesbak_REMINDER = "⏰ وقت نوبت {slot} مسباکه؛ بعد از انجام، اینجا ثبتش کن."
 
 
-def miswak_screen(
+def mesbak_screen(
     goal: int,
     completed: int,
     streak: int,
@@ -487,7 +495,7 @@ def miswak_screen(
     return "\n".join(lines)
 
 
-def miswak_recorded(
+def mesbak_recorded(
     completed: int, goal: int, streak: int, new_badges: list[str] | None = None
 ) -> str:
     if completed >= goal:
@@ -500,11 +508,11 @@ def miswak_recorded(
     return message
 
 
-def miswak_reminder(slot: int) -> str:
-    return MISWAK_REMINDER.format(slot=fa(slot))
+def mesbak_reminder(slot: int) -> str:
+    return mesbak_REMINDER.format(slot=fa(slot))
 
 
-def miswak_weekly(completed_days: int, streak: int, best: int, days: list[str]) -> str:
+def mesbak_weekly(completed_days: int, streak: int, best: int, days: list[str]) -> str:
     return (
         "📊 <b>گزارش مسباک · ۷ روز اخیر</b>\n\n"
         f"روزهای کامل: {fa(completed_days)} از ۷\n"
@@ -515,7 +523,7 @@ def miswak_weekly(completed_days: int, streak: int, best: int, days: list[str]) 
     )
 
 
-def miswak_monthly(completed_days: int, streak: int, best: int) -> str:
+def mesbak_monthly(completed_days: int, streak: int, best: int) -> str:
     return (
         "📅 <b>گزارش مسباک · ۳۰ روز اخیر</b>\n\n"
         f"روزهای کامل: {fa(completed_days)} از ۳۰\n"
@@ -525,7 +533,7 @@ def miswak_monthly(completed_days: int, streak: int, best: int) -> str:
     )
 
 
-def miswak_challenge(duration: int, progress: int, ends_on: str) -> str:
+def mesbak_challenge(duration: int, progress: int, ends_on: str) -> str:
     from datetime import date
 
     from BOOKzMA.utils import fa
@@ -541,7 +549,7 @@ def miswak_challenge(duration: int, progress: int, ends_on: str) -> str:
     )
 
 
-def miswak_league(rows: list[tuple[int, str, int]], opted_in: bool) -> str:
+def mesbak_league(rows: list[tuple[int, str, int]], opted_in: bool) -> str:
     from html import escape
 
     if not rows:
@@ -555,27 +563,67 @@ def miswak_league(rows: list[tuple[int, str, int]], opted_in: bool) -> str:
     return "\n".join(lines)
 
 
-def miswak_buddies(rows: list[tuple[int, str]]) -> str:
+def mesbak_buddies(rows: list[tuple[int, str]], queued: bool = False) -> str:
+    if not rows and queued:
+        return (
+            "🤝 <b>رفیق‌های مسباک</b>\n\n"
+            "در صف پیدا کردن رفیق ناشناس هستی؛ به‌محض match شدن خبرت می‌کنیم."
+        )
+    if not rows:
+        return (
+            "🤝 <b>رفیق‌های مسباک</b>\n\n"
+            "هنوز رفیقی نداری؛ دوستت رو دعوت کن یا رفیق ناشناس پیدا کن."
+        )
+    friends = "\n".join(
+        f"{fa(index)}. <b>{mesbak_buddy_name(name)}</b>" for index, (_pid, name) in enumerate(rows, 1)
+    )
+    waiting = "\n\n🔍 در صف پیدا کردن رفیق ناشناس هم هستی." if queued else ""
+    return f"🤝 <b>رفیق‌های مسباک</b>\n\n{friends}{waiting}\n\nبرای دیدن هر رفیق، روی اسمش بزن."
+
+
+MESBAK_RANDOM_WAITING = "🔍 در صف پیدا کردن رفیق ناشناس قرار گرفتی؛ به‌محض match شدن خبرت می‌کنیم."
+MESBAK_RANDOM_MATCHED_SELF = (
+    "🤝 رفیقت پیدا شد: <b>{name}</b>! از «🤝 رفیق‌های مسباک» وضعیتش رو دنبال کن."
+)
+MESBAK_RANDOM_MATCHED_PEER = "🤝 رفیق جدید مسباک پیدا شد: <b>{name}</b>! از «🤝 رفیق‌های مسباک» شروع کن."
+MESBAK_RANDOM_ALREADY_MATCHED = "از قبل یک رفیق ناشناس مسباک داری."
+MESBAK_RANDOM_QUEUE_BUSY = "اول از صف پیدا کردن رفیق ناشناس خارج شو، بعد لینک دعوت بساز."
+MESBAK_RANDOM_LEFT_QUEUE = "از صف پیدا کردن رفیق ناشناس خارج شدی."
+MESBAK_RANDOM_INACTIVE = "برای پیدا کردن رفیق، اول باید عضو فعال مسباک باشی."
+MESBAK_BUDDY_ENDED = "رفاقت مسباک تمام شد. بدون دلخوری؛ هر وقت خواستی دوباره رفیق پیدا کن 👋"
+
+
+def mesbak_buddy_name(display_name: str | None) -> str:
     from html import escape
 
-    if not rows:
-        return "🤝 <b>رفیق‌های مسباک</b>\n\nهنوز رفیقی نداری؛ دوستت رو دعوت کن."
-    names = "\n".join(f"• {escape(name.replace(chr(10), ' ')[:48])}" for _, name in rows)
-    return f"🤝 <b>رفیق‌های مسباک</b>\n\n{names}\n\nتلنگرها حداکثر روزی یک‌بارند."
+    return escape((display_name or "کاربر").replace("\n", " ").strip() or "کاربر")
 
 
-def miswak_buddy_invite_ready(link: str) -> str:
+def mesbak_buddy_screen(name: str, completed_days: int, done_today: bool) -> str:
+    if done_today:
+        status = "✅ امروز مسباکش رو کامل کرده"
+    else:
+        status = "⏳ امروز هنوز کامل نکرده"
+    return (
+        f"🤝 <b>رفیقت: {name}</b>\n\n"
+        f"🔥 روزهای کامل: {fa(completed_days)}\n"
+        f"{status}\n\n"
+        "اگه دیر کرد، یه تلنگر دوستانه بزن."
+    )
+
+
+def mesbak_buddy_invite_ready(link: str) -> str:
     return f"لینک دعوت یک‌بارمصرفت تا ۷ روز معتبره:\n<code>{link}</code>"
 
 
-def miswak_buddy_nudge(name: str) -> str:
+def mesbak_buddy_nudge(name: str) -> str:
     from html import escape
 
     return f"🔔 <b>{escape(name)}</b> برات یک تلنگر مسباک فرستاد."
 
 
-MISWAK_BUDDY_ACCEPTED = "رفاقت مسباک برقرار شد 🤝"
-MISWAK_BUDDY_ALREADY = "شما از قبل رفیق مسباک هم هستین."
-MISWAK_BUDDY_INACTIVE = "برای پذیرش دعوت، هر دو نفر باید عضو فعال بخش مسباک باشید."
-MISWAK_BUDDY_UNAVAILABLE = "این دعوت معتبر نیست، منقضی شده یا قبلاً استفاده شده."
-MISWAK_BUDDY_SELF = "نمی‌تونی دعوت خودت رو بپذیری."
+mesbak_BUDDY_ACCEPTED = "رفاقت مسباک برقرار شد 🤝"
+mesbak_BUDDY_ALREADY = "شما از قبل رفیق مسباک هم هستین."
+mesbak_BUDDY_INACTIVE = "برای پذیرش دعوت، هر دو نفر باید عضو فعال بخش مسباک باشید."
+mesbak_BUDDY_UNAVAILABLE = "این دعوت معتبر نیست، منقضی شده یا قبلاً استفاده شده."
+mesbak_BUDDY_SELF = "نمی‌تونی دعوت خودت رو بپذیری."

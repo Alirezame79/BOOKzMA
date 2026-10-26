@@ -13,8 +13,8 @@ from aiogram.exceptions import (
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from BOOKzMA import keyboards, texts
-from BOOKzMA.repositories import miswak as miswak_repo
-from BOOKzMA.services.miswak import effective_goal, reminder_due
+from BOOKzMA.repositories import mesbak as mesbak_repo
+from BOOKzMA.services.mesbak import effective_goal, reminder_due
 from BOOKzMA.utils import local_now
 
 log = logging.getLogger(__name__)
@@ -23,25 +23,25 @@ MAX_LATE = timedelta(minutes=10)
 MAX_ATTEMPTS_PER_DAY = 3
 
 
-async def miswak_reminder_loop(
+async def mesbak_reminder_loop(
     bot: Bot, session_pool: async_sessionmaker[AsyncSession]
 ) -> None:
-    log.info("miswak reminder loop started")
+    log.info("mesbak reminder loop started")
     while True:
         try:
-            await send_due_miswak_reminders(bot, session_pool)
+            await send_due_mesbak_reminders(bot, session_pool)
         except asyncio.CancelledError:
             raise
         except Exception:
-            log.exception("miswak reminder loop failed")
+            log.exception("mesbak reminder loop failed")
         await asyncio.sleep(CHECK_EVERY)
 
 
-async def send_due_miswak_reminders(
+async def send_due_mesbak_reminders(
     bot: Bot, session_pool: async_sessionmaker[AsyncSession]
 ) -> None:
     async with session_pool() as session:
-        rows = await miswak_repo.due_reminders(session)
+        rows = await mesbak_repo.due_reminders(session)
         completed_slots: dict[tuple[int, object], set[int]] = {}
         blocked: set[int] = set()
 
@@ -75,7 +75,7 @@ async def send_due_miswak_reminders(
 
             key = (user.id, today)
             if key not in completed_slots:
-                completed_slots[key] = await miswak_repo.entries_for_day(session, user.id, today)
+                completed_slots[key] = await mesbak_repo.entries_for_day(session, user.id, today)
             entries = completed_slots[key]
             if reminder.slot in entries or len(entries) >= goal:
                 reminder.last_sent_on = today
@@ -87,26 +87,26 @@ async def send_due_miswak_reminders(
             try:
                 await bot.send_message(
                     user.id,
-                    texts.miswak_reminder(reminder.slot),
-                    reply_markup=keyboards.miswak_reminder_push_kb(
+                    texts.mesbak_reminder(reminder.slot),
+                    reply_markup=keyboards.mesbak_reminder_push_kb(
                         today.strftime("%Y%m%d"), reminder.slot
                     ),
                 )
             except TelegramForbiddenError:
                 blocked.add(user.id)
-                await miswak_repo.delete_reminders(session, user.id)
+                await mesbak_repo.delete_reminders(session, user.id)
                 await session.commit()
-                log.info("user %s blocked the bot, miswak reminders removed", user.id)
+                log.info("user %s blocked the bot, mesbak reminders removed", user.id)
             except TelegramRetryAfter as error:
                 reminder.retry_after_until = datetime.now(timezone.utc) + timedelta(
                     seconds=error.retry_after
                 )
                 await session.commit()
             except (TelegramNetworkError, TelegramServerError):
-                log.exception("temporary miswak reminder failure for user %s", user.id)
+                log.exception("temporary mesbak reminder failure for user %s", user.id)
                 await session.commit()
             except TelegramAPIError:
-                log.exception("could not send miswak reminder to %s", user.id)
+                log.exception("could not send mesbak reminder to %s", user.id)
                 reminder.attempt_count = MAX_ATTEMPTS_PER_DAY
                 await session.commit()
             else:

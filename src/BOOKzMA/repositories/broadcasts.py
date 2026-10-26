@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import case, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from BOOKzMA.db.models import BroadcastCampaign, BroadcastDelivery, MiswakProfile, User
+from BOOKzMA.db.models import BroadcastCampaign, BroadcastDelivery, MesbakProfile, User
 
 _START_LOCK = asyncio.Lock()
 
@@ -19,7 +19,9 @@ async def create(
     button_label: str | None = None,
     button_url: str | None = None,
 ) -> tuple[int, int]:
-    if audience not in {"all", "miswak"}:
+    if audience == "mesbak":
+        audience = "mesbak"
+    if audience not in {"all", "mesbak"}:
         raise ValueError("unsupported broadcast audience")
     if media_type not in {None, "photo", "video"}:
         raise ValueError("unsupported broadcast media type")
@@ -38,9 +40,9 @@ async def create(
     session.add(campaign)
     await session.flush()
     statement = select(User.id).where(User.broadcast_unavailable.is_(False))
-    if audience == "miswak":
-        statement = statement.join(MiswakProfile, MiswakProfile.user_id == User.id).where(
-            MiswakProfile.enabled.is_(True)
+    if audience == "mesbak":
+        statement = statement.join(MesbakProfile, MesbakProfile.user_id == User.id).where(
+            MesbakProfile.enabled.is_(True)
         )
     result = await session.scalars(statement.order_by(User.id))
     user_ids = list(result)
@@ -56,9 +58,9 @@ async def eligible_recipient(
     statement = select(User.id).where(
         User.id == user_id, User.broadcast_unavailable.is_(False)
     )
-    if campaign.audience == "miswak":
-        statement = statement.join(MiswakProfile, MiswakProfile.user_id == User.id).where(
-            MiswakProfile.enabled.is_(True)
+    if campaign.audience == "mesbak":
+        statement = statement.join(MesbakProfile, MesbakProfile.user_id == User.id).where(
+            MesbakProfile.enabled.is_(True)
         )
     return await session.scalar(statement) is not None
 

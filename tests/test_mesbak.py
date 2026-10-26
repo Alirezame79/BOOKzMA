@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from BOOKzMA import keyboards, texts
-from BOOKzMA.services.miswak import (
+from BOOKzMA.services.mesbak import (
     completed_days,
     current_streak,
     default_schedule,
@@ -16,7 +16,7 @@ from BOOKzMA.services.miswak import (
     validate_daily_goal,
     validate_schedule,
 )
-from BOOKzMA.services.miswak_social import (
+from BOOKzMA.services.mesbak_social import (
     challenge_failed,
     challenge_end_date,
     challenge_progress,
@@ -56,11 +56,13 @@ def test_schedule_requires_one_unique_time_per_occurrence():
     ("goal", "expected"),
     [
         (1, [time(22)]),
-        (2, [time(19), time(22)]),
+        (2, [time(6, 30), time(22)]),
+        (3, [time(6, 30), time(13), time(22)]),
+        (4, [time(6, 30), time(13), time(19), time(22)]),
         (5, [time(6, 30), time(13), time(16), time(19), time(22)]),
     ],
 )
-def test_default_schedule_uses_latest_times_for_smaller_goals(goal, expected):
+def test_default_schedule_matches_local_default_reminder_pattern(goal, expected):
     assert default_schedule(goal) == expected
 
 
@@ -130,7 +132,7 @@ def test_challenge_fails_after_a_closed_day_is_missed_but_not_during_today():
     )
 
 
-def test_miswak_invite_token_is_validated_and_hashed():
+def test_mesbak_invite_token_is_validated_and_hashed():
     token = new_invite_token()
 
     assert invite_token_hash(token) is not None
@@ -138,28 +140,52 @@ def test_miswak_invite_token_is_validated_and_hashed():
     assert invite_token_hash("../../bad") is None
 
 
-def test_miswak_screen_shows_independent_badges():
-    screen = texts.miswak_screen(1, 1, 7, 7, ["06:30"], None, None, ["streak_7"])
+def test_mesbak_screen_shows_independent_badges():
+    screen = texts.mesbak_screen(1, 1, 7, 7, ["06:30"], None, None, ["streak_7"])
 
     assert "🏅 دستاوردها: ۷ روز" in screen
 
 
-def test_miswak_buddy_button_labels_are_bounded_and_single_line():
-    keyboard = keyboards.miswak_buddy_list_kb([(1, "نام\n" + "x" * 100)])
-    nudge_label = keyboard.inline_keyboard[0][0].text
+def test_mesbak_buddy_button_labels_are_bounded_and_single_line():
+    keyboard = keyboards.mesbak_buddy_list_kb([(1, "نام\n" + "x" * 100)])
+    buddy_label = keyboard.inline_keyboard[0][0].text
 
-    assert "\n" not in nudge_label
-    assert len(nudge_label) <= 64
+    assert "\n" not in buddy_label
+    assert len(buddy_label) <= 64
+    assert keyboard.inline_keyboard[0][0].callback_data == "mesbak:buddy:open:1"
 
 
-def test_miswak_goal_keyboard_has_valid_rows_and_callbacks():
-    keyboard = keyboards.miswak_goal_kb()
+def test_mesbak_buddy_screen_offers_anonymous_match_and_queue_cancel():
+    empty = keyboards.mesbak_buddy_list_kb([])
+    assert empty.inline_keyboard[0][0].callback_data == "mesbak:buddy:random:join"
+
+    queued = keyboards.mesbak_buddy_list_kb([], queued=True)
+    assert queued.inline_keyboard[0][0].callback_data == "mesbak:buddy:random:leave"
+    assert "رفیق ناشناس" in texts.mesbak_buddies([], queued=True)
+    active_match = keyboards.mesbak_buddy_list_kb([(1, "رفیق ناشناس")], random_matched=True)
+    assert all(
+        button.callback_data != "mesbak:buddy:random:join"
+        for row in active_match.inline_keyboard
+        for button in row
+    )
+    pair_kb = keyboards.mesbak_buddy_pair_kb(1)
+    assert [button.callback_data for button in pair_kb.inline_keyboard[0]] == [
+        "mesbak:buddy:nudge:1"
+    ]
+    assert pair_kb.inline_keyboard[1][0].callback_data == "mesbak:buddy:end:1"
+    assert "پایان رفاقت" in pair_kb.inline_keyboard[1][0].text
+    assert "پایان رفاقت 1" not in pair_kb.inline_keyboard[1][0].text
+    assert "پایان رفاقت" in texts.MESBAK_BUDDY_ENDED or "رفاقت مسباک تمام شد" in texts.MESBAK_BUDDY_ENDED
+
+
+def test_mesbak_goal_keyboard_has_valid_rows_and_callbacks():
+    keyboard = keyboards.mesbak_goal_kb()
 
     assert len(keyboard.inline_keyboard) == 2
     assert [button.callback_data for button in keyboard.inline_keyboard[0]] == [
-        f"miswak:goal:{goal}" for goal in range(1, 6)
+        f"mesbak:goal:{goal}" for goal in range(1, 6)
     ]
-    assert keyboard.inline_keyboard[1][0].callback_data == "miswak:open"
+    assert keyboard.inline_keyboard[1][0].callback_data == "mesbak:open"
 
 
 def test_reminder_due_respects_late_window_retry_and_daily_dedup():

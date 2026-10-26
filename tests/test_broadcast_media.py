@@ -38,7 +38,7 @@ def test_send_one_delivers_campaign_content_and_https_button(monkeypatch, media_
     async def run_test():
         campaign = SimpleNamespace(
             id=5,
-            audience="miswak",
+            audience="mesbak",
             text="یادگیری",
             media_type=media_type,
             media_file_id="telegram-file-id" if media_type else None,
@@ -88,7 +88,7 @@ def test_send_one_delivers_campaign_content_and_https_button(monkeypatch, media_
 
 def test_send_one_skips_cohort_member_who_left_before_delivery(monkeypatch):
     async def run_test():
-        campaign = SimpleNamespace(id=5, audience="miswak")
+        campaign = SimpleNamespace(id=5, audience="mesbak")
         delivery = SimpleNamespace(id=9, user_id=77, attempts=0)
         session = Session()
         states = []

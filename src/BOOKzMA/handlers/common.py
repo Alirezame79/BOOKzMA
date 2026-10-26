@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from BOOKzMA import keyboards, texts
 from BOOKzMA.repositories import readings, users
 from BOOKzMA.repositories import streak_freezes
-from BOOKzMA.repositories import miswak as miswak_repo
-from BOOKzMA.services.miswak import completed_days, current_streak
+from BOOKzMA.repositories import mesbak as mesbak_repo
+from BOOKzMA.services.mesbak import completed_days, current_streak
 from BOOKzMA.services.streak import displayed_streak, longest_streak, week_strip
 from BOOKzMA.utils import local_today
 
@@ -30,11 +30,11 @@ async def show(
 async def render_home(event: Message | CallbackQuery, session: AsyncSession, tg: TgUser) -> None:
     user = await users.get_or_create(session, tg.id, tg.username, tg.full_name)
     today = local_today(user.timezone)
-    miswak_profile = await miswak_repo.get_profile(session, user.id, today)
-    miswak_streak = None
-    if miswak_profile is not None and miswak_profile.enabled:
-        miswak_streak = current_streak(
-            completed_days(await miswak_repo.daily_records(session, user.id)), today
+    mesbak_profile = await mesbak_repo.get_profile(session, user.id, today)
+    mesbak_streak = None
+    if mesbak_profile is not None and mesbak_profile.enabled:
+        mesbak_streak = current_streak(
+            completed_days(await mesbak_repo.daily_records(session, user.id)), today
         )
     await session.commit()
     days = set(await readings.get_days(session, user.id))
@@ -49,10 +49,10 @@ async def render_home(event: Message | CallbackQuery, session: AsyncSession, tg:
         week_strip(days, today, frozen_days),
         read_today,
         freeze_balance,
-        miswak_streak,
+        mesbak_streak,
     )
     await show(
         event,
         text,
-        keyboards.home_kb(read_today, miswak_profile is not None and miswak_profile.enabled),
+        keyboards.home_kb(read_today, mesbak_profile is not None and mesbak_profile.enabled),
     )

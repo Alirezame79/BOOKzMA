@@ -7,8 +7,10 @@ from BOOKzMA.db.models import (
     ActivityDay,
     Badge,
     BuddyPair,
-    MiswakEntry,
-    MiswakProfile,
+    MesbakEntry,
+    MesbakBuddyPair,
+    MesbakBuddyQueue,
+    MesbakProfile,
     ReadingLog,
     Reminder,
     StreakAlert,
@@ -74,7 +76,7 @@ async def dashboard(session: AsyncSession, today: date) -> dict[str, int]:
     counts.update(await streak_stats(session))
     counts.update(await badges_stats(session))
     counts.update(await buddy_stats(session))
-    counts.update(await miswak_stats(session, today))
+    counts.update(await mesbak_stats(session, today))
     deleted_total, deleted_recent = await users.deletion_counts(
         session, now - timedelta(days=7)
     )
@@ -180,38 +182,38 @@ async def buddy_stats(session: AsyncSession) -> dict[str, int]:
     )
     total = await session.scalar(select(func.count()).select_from(BuddyPair)) or 0
     return {"buddy_pairs_active": active, "buddy_pairs_total": total}
-async def miswak_stats(session: AsyncSession, today: date) -> dict[str, int]:
+async def mesbak_stats(session: AsyncSession, today: date) -> dict[str, int]:
     seven_days_ago = today - timedelta(days=6)
     thirty_days_ago = today - timedelta(days=29)
     daily = (
         select(
-            MiswakEntry.user_id.label("user_id"),
-            MiswakEntry.day.label("day"),
+            MesbakEntry.user_id.label("user_id"),
+            MesbakEntry.day.label("day"),
             func.count().label("done"),
-            func.max(MiswakEntry.daily_goal).label("goal"),
+            func.max(MesbakEntry.daily_goal).label("goal"),
         )
-        .join(MiswakProfile, MiswakProfile.user_id == MiswakEntry.user_id)
-        .where(MiswakProfile.enabled.is_(True))
-        .group_by(MiswakEntry.user_id, MiswakEntry.day)
+        .join(MesbakProfile, MesbakProfile.user_id == MesbakEntry.user_id)
+        .where(MesbakProfile.enabled.is_(True))
+        .group_by(MesbakEntry.user_id, MesbakEntry.day)
         .subquery()
     )
     enabled_members = await session.scalar(
-        select(func.count()).select_from(MiswakProfile).where(MiswakProfile.enabled.is_(True))
+        select(func.count()).select_from(MesbakProfile).where(MesbakProfile.enabled.is_(True))
     ) or 0
     active_7d = await session.scalar(
-        select(func.count(func.distinct(MiswakEntry.user_id)))
-        .join(MiswakProfile, MiswakProfile.user_id == MiswakEntry.user_id)
+        select(func.count(func.distinct(MesbakEntry.user_id)))
+        .join(MesbakProfile, MesbakProfile.user_id == MesbakEntry.user_id)
         .where(
-            MiswakProfile.enabled.is_(True),
-            MiswakEntry.day.between(seven_days_ago, today),
+            MesbakProfile.enabled.is_(True),
+            MesbakEntry.day.between(seven_days_ago, today),
         )
     ) or 0
     active_30d = await session.scalar(
-        select(func.count(func.distinct(MiswakEntry.user_id)))
-        .join(MiswakProfile, MiswakProfile.user_id == MiswakEntry.user_id)
+        select(func.count(func.distinct(MesbakEntry.user_id)))
+        .join(MesbakProfile, MesbakProfile.user_id == MesbakEntry.user_id)
         .where(
-            MiswakProfile.enabled.is_(True),
-            MiswakEntry.day.between(thirty_days_ago, today),
+            MesbakProfile.enabled.is_(True),
+            MesbakEntry.day.between(thirty_days_ago, today),
         )
     ) or 0
     active_days_7d = await session.scalar(
@@ -225,14 +227,25 @@ async def miswak_stats(session: AsyncSession, today: date) -> dict[str, int]:
             daily.c.done >= daily.c.goal,
         )
     ) or 0
+    anonymous_pairs = await session.scalar(
+        select(func.count()).select_from(MesbakBuddyPair).where(
+            MesbakBuddyPair.status == "active",
+            MesbakBuddyPair.pair_type == "random",
+        )
+    ) or 0
+    anonymous_waiting = await session.scalar(
+        select(func.count()).select_from(MesbakBuddyQueue)
+    ) or 0
     return {
-        "miswak_members": enabled_members,
-        "miswak_active_7d": active_7d,
-        "miswak_active_30d": active_30d,
-        "miswak_completed_days_7d": completed_days_7d,
-        "miswak_completion_rate_7d": round(completed_days_7d * 100 / active_days_7d)
+        "mesbak_members": enabled_members,
+        "mesbak_active_7d": active_7d,
+        "mesbak_active_30d": active_30d,
+        "mesbak_completed_days_7d": completed_days_7d,
+        "mesbak_completion_rate_7d": round(completed_days_7d * 100 / active_days_7d)
         if active_days_7d
         else 0,
+        "mesbak_random_pairs": anonymous_pairs,
+        "mesbak_random_waiting": anonymous_waiting,
     }
 
 

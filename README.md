@@ -40,5 +40,5 @@ Endpointهای نسخهٔ اول API:
 
 ## توسعه با ابزارهای هوش مصنوعی
 
-پیش از هر تغییر، [AGENTS.md](AGENTS.md) و سندهای مرتبط در `docs/` را بخوان. برای branch، تست محلی، PR، tag و deploy از [docs/WORKFLOW.md](docs/WORKFLOW.md) پیروی کن. تفاوت محیط محلی و Docker در [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md) است؛ فایل محلی `dev_run.py` را به GitHub اضافه نکن.
+پیش از هر تغییر، [AGENTS.md](AGENTS.md) و سندهای مرتبط در `docs/` را بخوان. برای branch، تست محلی، PR، tag و deploy از [docs/WORKFLOW.md](docs/WORKFLOW.md) پیروی کن. تفاوت محیط محلی و Docker و اجرای launcher توسعه در [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md) آمده است.
 docker compose up -d --build

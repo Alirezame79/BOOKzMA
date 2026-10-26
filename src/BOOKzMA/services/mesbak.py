@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 from datetime import date, datetime, time, timedelta
 
-from BOOKzMA.constants import MISWAK_PRESET_TIMES
+from BOOKzMA.constants import MESBAK_PRESET_TIMES
 
 MIN_DAILY_GOAL = 1
 MAX_DAILY_GOAL = 5
@@ -27,12 +27,19 @@ def validate_schedule(goal: int, times: Iterable[time]) -> list[time]:
 
 def default_schedule(goal: int) -> list[time]:
     validate_daily_goal(goal)
-    return [time.fromisoformat(value) for value in MISWAK_PRESET_TIMES[-goal:]]
+    mapping = {
+        1: ["22:00"],
+        2: ["06:30", "22:00"],
+        3: ["06:30", "13:00", "22:00"],
+        4: ["06:30", "13:00", "19:00", "22:00"],
+        5: ["06:30", "13:00", "16:00", "19:00", "22:00"],
+    }
+    return [time.fromisoformat(value) for value in mapping[goal]]
 
 
 def is_legacy_default_schedule(goal: int, times: Iterable[time]) -> bool:
     validate_daily_goal(goal)
-    legacy = [time.fromisoformat(value) for value in MISWAK_PRESET_TIMES[:goal]]
+    legacy = [time.fromisoformat(value) for value in MESBAK_PRESET_TIMES[:goal]]
     return list(times) == legacy
 
 
