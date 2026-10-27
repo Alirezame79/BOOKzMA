@@ -93,7 +93,7 @@ async def on_broadcast_audience(
     if not _authorize(callback.from_user.id, settings, "select_broadcast_audience"):
         await callback.answer("دسترسی نداری.", show_alert=True)
         return
-    match = re.fullmatch(r"broadcast:audience:(all|mesbak|mesbak)", callback.data or "")
+    match = re.fullmatch(r"broadcast:audience:(all|mesbak)", callback.data or "")
     if match is None:
         await callback.answer("مخاطب معتبر نیست.", show_alert=True)
         return
@@ -169,8 +169,6 @@ async def on_broadcast_link(
 
     data = await state.get_data()
     audience = data.get("audience")
-    if audience == "mesbak":
-        audience = "mesbak"
     if audience not in {"all", "mesbak"}:
         await state.clear()
         await message.answer("پیش‌نویس پیدا نشد؛ از پنل مدیریت دوباره شروع کن.")

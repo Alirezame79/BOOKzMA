@@ -167,7 +167,7 @@ async def _configure_from_callback(
 
 @router.callback_query(F.data.startswith("mesbak:join:"))
 async def on_join(callback: CallbackQuery, session: AsyncSession) -> None:
-    match = re.fullmatch(r"(?:mesbak|mesbak):join:([1-5])", callback.data or "")
+    match = re.fullmatch(r"mesbak:join:([1-5])", callback.data or "")
     if match is None:
         await callback.answer(texts.INVALID_ACTION, show_alert=True)
         return
@@ -176,7 +176,7 @@ async def on_join(callback: CallbackQuery, session: AsyncSession) -> None:
 
 @router.callback_query(F.data.startswith("mesbak:goal:"))
 async def on_goal(callback: CallbackQuery, session: AsyncSession) -> None:
-    match = re.fullmatch(r"(?:mesbak|mesbak):goal:([1-5])", callback.data or "")
+    match = re.fullmatch(r"mesbak:goal:([1-5])", callback.data or "")
     if match is None:
         await callback.answer(texts.INVALID_ACTION, show_alert=True)
         return
@@ -189,7 +189,7 @@ async def on_goal(callback: CallbackQuery, session: AsyncSession) -> None:
 
 @router.callback_query(F.data.startswith("mesbak:done:"))
 async def on_record(callback: CallbackQuery, session: AsyncSession) -> None:
-    match = re.fullmatch(r"(?:mesbak|mesbak):done:(\d{8}):([1-5])", callback.data or "")
+    match = re.fullmatch(r"mesbak:done:(\d{8}):([1-5])", callback.data or "")
     if match is None:
         await callback.answer(texts.INVALID_ACTION, show_alert=True)
         return
@@ -227,7 +227,7 @@ async def on_record(callback: CallbackQuery, session: AsyncSession) -> None:
 
 @router.callback_query(F.data.startswith("mesbak:time:"))
 async def on_time_settings(callback: CallbackQuery, session: AsyncSession) -> None:
-    match = re.fullmatch(r"(?:mesbak|mesbak):time:([1-5])", callback.data or "")
+    match = re.fullmatch(r"mesbak:time:([1-5])", callback.data or "")
     if match is None:
         await callback.answer(texts.INVALID_ACTION, show_alert=True)
         return
@@ -285,7 +285,7 @@ async def _save_time(
 
 @router.callback_query(F.data.startswith("mesbak:settime:"))
 async def on_preset_time(callback: CallbackQuery, session: AsyncSession) -> None:
-    match = re.fullmatch(r"(?:mesbak|mesbak):settime:([1-5]):(\d{4})", callback.data or "")
+    match = re.fullmatch(r"mesbak:settime:([1-5]):(\d{4})", callback.data or "")
     presets = {value.replace(":", "") for value in MESBAK_PRESET_TIMES}
     if match is None or match[2] not in presets:
         await callback.answer(texts.INVALID_ACTION, show_alert=True)
@@ -297,7 +297,7 @@ async def on_preset_time(callback: CallbackQuery, session: AsyncSession) -> None
 async def on_custom_time_start(
     callback: CallbackQuery, state: FSMContext
 ) -> None:
-    match = re.fullmatch(r"(?:mesbak|mesbak):customtime:([1-5])", callback.data or "")
+    match = re.fullmatch(r"mesbak:customtime:([1-5])", callback.data or "")
     if match is None:
         await callback.answer(texts.INVALID_ACTION, show_alert=True)
         return

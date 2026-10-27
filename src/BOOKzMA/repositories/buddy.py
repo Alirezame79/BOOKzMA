@@ -188,15 +188,3 @@ async def register_nudge(session: AsyncSession, pair: BuddyPair, day: date) -> b
         .returning(BuddyPair.id)
     )
     return result.first() is not None
-
-
-async def stats(session: AsyncSession) -> dict[str, int]:
-    """KPI ادمین: جفت‌های فعال و کل جفت‌های تشکیل‌شده."""
-    active = (
-        await session.scalar(
-            select(func.count()).select_from(BuddyPair).where(BuddyPair.status == "active")
-        )
-        or 0
-    )
-    total = await session.scalar(select(func.count()).select_from(BuddyPair)) or 0
-    return {"buddy_pairs_active": active, "buddy_pairs_total": total}
