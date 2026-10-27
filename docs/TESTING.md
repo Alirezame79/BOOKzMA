@@ -1,6 +1,6 @@
 # Testing
 
-The current suite has pure tests for streak/date calculations and freezes, admin configuration/callback parsing, time parsing, Persian digits, API auth/helpers/routes, and PostgreSQL integration tests for reminder concurrency, freeze persistence, and broadcast confirmation/cancellation. Database tests are skipped unless `TEST_DATABASE_URL` points to a disposable PostgreSQL database. Do not use production data or credentials.
+The current suite has pure tests for streak/date calculations and freezes, admin configuration/callback parsing, time parsing, Persian digits, and API auth/helpers/routes. PostgreSQL integration tests cover same-day reading-registration concurrency, reminder limits, account deletion and restoration, streak-freeze persistence, broadcast confirmation/cancellation, badges, onboarding, comeback analytics, study buddies, and Mesbak persistence/social limits. Database tests are skipped unless `TEST_DATABASE_URL` points to a disposable PostgreSQL database. Do not use production data or credentials.
 
 ## Local Environment Snapshot
 
@@ -19,6 +19,6 @@ The current host and `.venv` use Python 3.14, while `pyproject.toml` and CI targ
 
 Tests must be deterministic and use synthetic identities/data. Avoid dependence on today's real date, network availability, bot tokens, or live Telegram. Write a failing regression test before fixing a reproducible bug. Do not delete or weaken tests to get a pass. For concurrency, rely on database constraints/locking and verify the outcome with the integration test.
 
-When shared streak logic changes, also review reading registration, weekly summaries, reminders, and API responses. Current CI starts PostgreSQL and sets `TEST_DATABASE_URL`; `test_reminder_limit.py` uses it for the concurrent reminder-cap test. Future work may expand PostgreSQL coverage, add fabricated aiogram update tests, and rehearse backup restoration; those additions are not implemented now.
+When shared streak logic changes, also review reading registration, weekly summaries, reminders, and API responses. Current CI starts PostgreSQL and sets `TEST_DATABASE_URL`; database tests use it for persistence, constraints, idempotency, and concurrent-write contracts. The initial F-03 slice adds a concurrent same-day `mark_read` contract test; broader repository/migration coverage should be based on separately identified gaps rather than duplicating existing tests. Future work may add fabricated aiogram update tests and rehearse backup restoration; those additions are not implemented now.
 
 Before finishing, run `ruff check . && pytest` and report the exact command and observed summary. “Should pass” is not a test result. If an environment mismatch, missing dependency, database, Docker, or Telegram access prevents a check, report it as not run or blocked.
