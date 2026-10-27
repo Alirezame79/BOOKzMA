@@ -227,6 +227,11 @@ async def mesbak_stats(session: AsyncSession, today: date) -> dict[str, int]:
             daily.c.done >= daily.c.goal,
         )
     ) or 0
+    active_pairs = await session.scalar(
+        select(func.count()).select_from(MesbakBuddyPair).where(
+            MesbakBuddyPair.status == "active"
+        )
+    ) or 0
     anonymous_pairs = await session.scalar(
         select(func.count()).select_from(MesbakBuddyPair).where(
             MesbakBuddyPair.status == "active",
@@ -244,6 +249,7 @@ async def mesbak_stats(session: AsyncSession, today: date) -> dict[str, int]:
         "mesbak_completion_rate_7d": round(completed_days_7d * 100 / active_days_7d)
         if active_days_7d
         else 0,
+        "mesbak_buddy_pairs": active_pairs,
         "mesbak_random_pairs": anonymous_pairs,
         "mesbak_random_waiting": anonymous_waiting,
     }

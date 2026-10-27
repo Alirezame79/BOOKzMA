@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from BOOKzMA import texts
 from BOOKzMA.db.models import BroadcastCampaign, MesbakEntry, MesbakProfile, User
 from BOOKzMA.repositories import analytics, broadcasts, mesbak
 from BOOKzMA.services.mesbak import completed_days, current_streak, longest_streak
@@ -365,7 +366,13 @@ def test_mesbak_random_buddy_queue_is_fifo_and_allows_multiple_buddies():
 
                 stats = await analytics.mesbak_stats(session, today)
                 assert stats["mesbak_random_pairs"] == stats_before["mesbak_random_pairs"] + 3
+                assert stats["mesbak_buddy_pairs"] == stats_before["mesbak_buddy_pairs"] + 3
                 assert stats["mesbak_random_waiting"] == stats_before["mesbak_random_waiting"]
+                dashboard_stats = await analytics.dashboard(session, today)
+                assert dashboard_stats["mesbak_buddy_pairs"] == (
+                    stats_before["mesbak_buddy_pairs"] + 3
+                )
+                assert "رفیق مسباک" in texts.admin_dashboard(dashboard_stats, [])
         finally:
             async with session_pool() as session:
                 await session.execute(delete(User).where(User.id.in_(user_ids)))
